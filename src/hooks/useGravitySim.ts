@@ -1,36 +1,135 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Vec2 = { x: number; y: number };
+
+export type Body = {
+  id: string;
+  pos: Vec2;
+  vel: Vec2;
+  mass: number;
+  radius: number;
+};
+
+type Pointer = {
+  x: number;
+  y: number;
+  inside: boolean;
+};
+
+type SimParams = {
+  damping: number;
+  g: number;
+  softening: number;
+  maxSpeed: number;
+};
 
 type UseGravitySimArgs = {
   initialPos: Vec2;
   initialVel?: Vec2;
-  gravity?: Vec2;
+  sim?: Partial<SimParams>;
 };
+
+function uid() {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `b_${Math.random().toString(16).slice(2)}`
+  );
+}
+
+function rand(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+function mag(x: number, y: number) {
+  return Math.sqrt(x * x + y * y);
+}
 
 export function useGravitySim({
   initialPos,
   initialVel = { x: 0, y: 0 },
-  gravity = { x: 0, y: 900 },
+  sim,
 }: UseGravitySimArgs) {
+  const params: SimParams = useMemo(
+    () => ({
+      damping: sim?.damping ?? 0.9995,
+      g: sim?.g ?? 3_000_000,
+      softening: sim?.softening ?? 40,
+      maxSpeed: sim?.maxSpeed ?? 2200,
+    }),
+    [sim?.damping, sim?.g, sim?.softening, sim?.maxSpeed],
+  );
+
   const [paused, setPaused] = useState(false);
 
-  const posRef = useRef<Vec2>({ ...initialPos });
-  const velRef = useRef<Vec2>({ ...initialVel });
-  const [pos, setPos] = useState<Vec2>({ ...initialPos });
+  const pointerRef = useRef<Pointer>({ x: 0, y: 0, inside: false });
+
+  const makeInitialBody = useCallback((): Body => {
+    return {
+      id: uid(),
+      pos: { ...initialPos },
+      vel: { ...initialVel },
+      mass: 5,
+      radius: 14,
+    };
+  }, [initialPos, initialVel]);
+
+  const initialBodies = useMemo(() => [makeInitialBody()], [makeInitialBody]);
+
+  const bodiesRef = useRef<Body[]>(initialBodies);
+  const [bodies, setBodies] = useState<Body[]>(() => initialBodies);
 
   const rafRef = useRef<number | null>(null);
   const lastRef = useRef<number | null>(null);
 
+  const setPointer = useCallback((p: Pointer) => {
+    pointerRef.current = p;
+  }, []);
+
   const reset = useCallback(() => {
-    posRef.current = { ...initialPos };
-    velRef.current = { ...initialVel };
+    const next = [makeInitialBody()];
+    bodiesRef.current = next;
     lastRef.current = null;
-    setPos({ ...initialPos });
-  }, [initialPos, initialVel]);
+    setBodies(next);
+  }, [makeInitialBody]);
 
   const togglePause = useCallback(() => {
     setPaused((p) => !p);
+  }, []);
+
+  const addBody = useCallback(
+    (bounds?: { w: number; h: number }) => {
+      const radius = Math.round(rand(8, 26));
+      const mass = Math.round(rand(1, 12));
+
+      const x = bounds
+        ? rand(radius, Math.max(radius, bounds.w - radius))
+        : initialPos.x + rand(-120, 120);
+
+      const y = bounds
+        ? rand(radius, Math.max(radius, bounds.h - radius))
+        : initialPos.y + rand(-120, 120);
+
+      const nextBody: Body = {
+        id: uid(),
+        pos: { x, y },
+        vel: { x: rand(-120, 120), y: rand(-120, 120) },
+        mass,
+        radius,
+      };
+
+      const next = [...bodiesRef.current, nextBody];
+      bodiesRef.current = next;
+      setBodies(next);
+    },
+    [initialPos.x, initialPos.y],
+  );
+
+  const removeLastBody = useCallback(() => {
+    const cur = bodiesRef.current;
+    if (cur.length <= 1) return;
+    const next = cur.slice(0, -1);
+    bodiesRef.current = next;
+    setBodies(next);
   }, []);
 
   useEffect(() => {
@@ -40,19 +139,46 @@ export function useGravitySim({
       lastRef.current = t;
 
       if (!paused) {
-        const p = posRef.current;
-        const v = velRef.current;
+        const p = pointerRef.current;
 
-        v.x += gravity.x * dt;
-        v.y += gravity.y * dt;
+        const next = bodiesRef.current.map((b) => {
+          const v = { ...b.vel };
+          const pos = { ...b.pos };
 
-        p.x += v.x * dt;
-        p.y += v.y * dt;
+          if (p.inside) {
+            const dx = p.x - pos.x;
+            const dy = p.y - pos.y;
 
-        posRef.current = { ...p };
-        velRef.current = { ...v };
+            const dist = mag(dx, dy);
+            const s = dist + params.softening;
 
-        setPos({ ...p });
+            const aMag = (params.g * b.mass) / (s * s);
+
+            const nx = dist > 0 ? dx / dist : 0;
+            const ny = dist > 0 ? dy / dist : 0;
+
+            v.x += nx * aMag * dt;
+            v.y += ny * aMag * dt;
+          }
+
+          v.x *= params.damping;
+          v.y *= params.damping;
+
+          const sp = mag(v.x, v.y);
+          if (sp > params.maxSpeed) {
+            const k = params.maxSpeed / sp;
+            v.x *= k;
+            v.y *= k;
+          }
+
+          pos.x += v.x * dt;
+          pos.y += v.y * dt;
+
+          return { ...b, pos, vel: v };
+        });
+
+        bodiesRef.current = next;
+        setBodies(next);
       }
 
       rafRef.current = requestAnimationFrame(tick);
@@ -63,15 +189,20 @@ export function useGravitySim({
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [paused, gravity.x, gravity.y]);
+  }, [paused, params.damping, params.g, params.maxSpeed, params.softening]);
 
   return {
-    pos,
+    bodies,
+    bodiesRef,
+
     paused,
     setPaused,
     togglePause,
     reset,
-    posRef,
-    velRef,
+
+    addBody,
+    removeLastBody,
+
+    setPointer,
   };
 }

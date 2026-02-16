@@ -1,83 +1,100 @@
 "use client";
 
-import { useRef, useCallback, useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { usePlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
-import { useLatestRef } from "@/src/hooks/useLatestRef";
-import { useRafLoop } from "@/src/hooks/useRafLoop";
 import PlayfieldBackground from "@/src/components/gravity/PlayfieldBackground";
 import PointerReticle from "@/src/components/gravity/PointerReticle";
 import PointerCoordinates from "./PointerCoordinates";
-import { useGravityBody } from "@/src/hooks/useGravityBody";
+import type { Body } from "@/src/hooks/useGravitySim";
 
-const SIM = {
-  damping: 0.998,
-  g: 300_000,
-  softening: 40,
-  maxSpeed: 2200,
-};
+type SimPointer = { x: number; y: number; inside: boolean };
 
 type PlayfieldProps = {
   paused: boolean;
   resetNonce: number;
+  bodies: Body[];
+  onBoundsChange: (b: { w: number; h: number }) => void;
+  onPointerChange: (p: SimPointer) => void;
 };
 
-export default function Playfield({ paused, resetNonce }: PlayfieldProps) {
+export default function Playfield({
+  resetNonce,
+  bodies,
+  onBoundsChange,
+  onPointerChange,
+}: PlayfieldProps) {
   const playfieldRef = useRef<HTMLElement | null>(null);
-  const bodyElRef = useRef<HTMLDivElement | null>(null);
 
-  const pointer = usePlayfieldPointer(playfieldRef, {
-    clampToBounds: true,
-  });
+  const uiPointer = usePlayfieldPointer(playfieldRef, { clampToBounds: true });
 
-  const pointerRef = useLatestRef(pointer);
-
-  const { step, resetToCenter } = useGravityBody({
-    playfieldRef,
-    bodyElRef,
-    pointerRef,
-    sim: SIM,
-  });
+  const insideRef = useRef(false);
 
   useEffect(() => {
-    resetToCenter();
-  }, [resetNonce, resetToCenter]);
+    if (!playfieldRef.current) return;
 
-  const wasPausedRef = useRef(false);
+    const el = playfieldRef.current;
 
-  const onFrame = useCallback(
-    (t: number, dt: number) => {
-      if (paused) {
-        wasPausedRef.current = true;
-        return;
-      }
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      onBoundsChange({ w: r.width, h: r.height });
+    };
 
-      if (wasPausedRef.current) {
-        wasPausedRef.current = false;
-        dt = 0;
-      }
+    update();
 
-      step(t, dt);
-    },
-    [paused, step],
-  );
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
 
-  useRafLoop(onFrame);
+    return () => ro.disconnect();
+  }, [onBoundsChange]);
+
+  const toLocal = (e: React.PointerEvent) => {
+    const el = playfieldRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const r = el.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const rendered = useMemo(() => {
+    return bodies.map((b) => (
+      <div
+        key={b.id}
+        className="absolute left-0 top-0 z-30 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 shadow-[0_0_22px_rgba(147,197,253,0.8),0_0_60px_rgba(124,58,237,0.45)] ring-2 ring-cyan-200/70"
+        style={{
+          width: b.radius * 2,
+          height: b.radius * 2,
+          transform: `translate(${b.pos.x}px, ${b.pos.y}px) translate(-50%, -50%)`,
+        }}
+      />
+    ));
+  }, [bodies]);
 
   return (
     <section
       ref={playfieldRef}
       className="relative flex-1 h-full overflow-hidden bg-[#050510]"
+      key={resetNonce}
+      onPointerEnter={(e) => {
+        insideRef.current = true;
+        const p = toLocal(e);
+        onPointerChange({ ...p, inside: true });
+      }}
+      onPointerLeave={(e) => {
+        insideRef.current = false;
+        const p = toLocal(e);
+        onPointerChange({ ...p, inside: false });
+      }}
+      onPointerMove={(e) => {
+        const p = toLocal(e);
+        onPointerChange({ ...p, inside: insideRef.current });
+      }}
     >
       <PlayfieldBackground />
 
       <div className="relative h-full w-full">
-        <div
-          ref={bodyElRef}
-          className="absolute left-0 top-0 z-30 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 shadow-[0_0_22px_rgba(147,197,253,0.8),0_0_60px_rgba(124,58,237,0.45)] ring-2 ring-cyan-200/70"
-        />
+        {rendered}
 
-        <PointerCoordinates pointer={pointer} />
-        <PointerReticle pointer={pointer} />
+        <PointerCoordinates pointer={uiPointer} />
+        <PointerReticle pointer={uiPointer} />
       </div>
     </section>
   );
