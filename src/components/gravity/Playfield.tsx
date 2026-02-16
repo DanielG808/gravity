@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { usePlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import { useLatestRef } from "@/src/hooks/useLatestRef";
 import { useRafLoop } from "@/src/hooks/useRafLoop";
@@ -16,7 +16,12 @@ const SIM = {
   maxSpeed: 2200,
 };
 
-export default function Playfield() {
+type PlayfieldProps = {
+  paused: boolean;
+  resetNonce: number;
+};
+
+export default function Playfield({ paused, resetNonce }: PlayfieldProps) {
   const playfieldRef = useRef<HTMLElement | null>(null);
   const bodyElRef = useRef<HTMLDivElement | null>(null);
 
@@ -26,18 +31,34 @@ export default function Playfield() {
 
   const pointerRef = useLatestRef(pointer);
 
-  const { step } = useGravityBody({
+  const { step, resetToCenter } = useGravityBody({
     playfieldRef,
     bodyElRef,
     pointerRef,
     sim: SIM,
   });
 
+  useEffect(() => {
+    resetToCenter();
+  }, [resetNonce, resetToCenter]);
+
+  const wasPausedRef = useRef(false);
+
   const onFrame = useCallback(
     (t: number, dt: number) => {
+      if (paused) {
+        wasPausedRef.current = true;
+        return;
+      }
+
+      if (wasPausedRef.current) {
+        wasPausedRef.current = false;
+        dt = 0;
+      }
+
       step(t, dt);
     },
-    [step],
+    [paused, step],
   );
 
   useRafLoop(onFrame);
