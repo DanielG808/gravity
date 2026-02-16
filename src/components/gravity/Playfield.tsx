@@ -1,100 +1,100 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import { usePlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
-import PlayfieldBackground from "@/src/components/gravity/PlayfieldBackground";
-import PointerReticle from "@/src/components/gravity/PointerReticle";
-import PointerCoordinates from "./PointerCoordinates";
+import * as React from "react";
 import type { Body } from "@/src/hooks/useGravitySim";
-
-type SimPointer = { x: number; y: number; inside: boolean };
 
 type PlayfieldProps = {
   paused: boolean;
   resetNonce: number;
   bodies: Body[];
   onBoundsChange: (b: { w: number; h: number }) => void;
-  onPointerChange: (p: SimPointer) => void;
+  onPointerChange: (p: { x: number; y: number; inside: boolean }) => void;
 };
 
 export default function Playfield({
+  paused,
   resetNonce,
   bodies,
   onBoundsChange,
   onPointerChange,
 }: PlayfieldProps) {
-  const playfieldRef = useRef<HTMLElement | null>(null);
+  const ref = React.useRef<HTMLElement | null>(null);
 
-  const uiPointer = usePlayfieldPointer(playfieldRef, { clampToBounds: true });
-
-  const insideRef = useRef(false);
-
-  useEffect(() => {
-    if (!playfieldRef.current) return;
-
-    const el = playfieldRef.current;
-
-    const update = () => {
-      const r = el.getBoundingClientRect();
-      onBoundsChange({ w: r.width, h: r.height });
-    };
-
-    update();
-
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-
-    return () => ro.disconnect();
+  const measure = React.useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    onBoundsChange({ w: r.width, h: r.height });
   }, [onBoundsChange]);
 
-  const toLocal = (e: React.PointerEvent) => {
-    const el = playfieldRef.current;
-    if (!el) return { x: 0, y: 0 };
-    const r = el.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  };
+  React.useLayoutEffect(() => {
+    measure();
+  }, [measure, resetNonce]);
 
-  const rendered = useMemo(() => {
-    return bodies.map((b) => (
-      <div
-        key={b.id}
-        className="absolute left-0 top-0 z-30 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 shadow-[0_0_22px_rgba(147,197,253,0.8),0_0_60px_rgba(124,58,237,0.45)] ring-2 ring-cyan-200/70"
-        style={{
-          width: b.radius * 2,
-          height: b.radius * 2,
-          transform: `translate(${b.pos.x}px, ${b.pos.y}px) translate(-50%, -50%)`,
-        }}
-      />
-    ));
-  }, [bodies]);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+
+    const onWin = () => measure();
+    window.addEventListener("resize", onWin);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", onWin);
+    };
+  }, [measure]);
+
+  const toLocal = React.useCallback((e: React.PointerEvent) => {
+    const el = ref.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    return { x, y, w: r.width, h: r.height };
+  }, []);
 
   return (
     <section
-      ref={playfieldRef}
+      ref={ref}
       className="relative flex-1 h-full overflow-hidden bg-[#050510]"
-      key={resetNonce}
-      onPointerEnter={(e) => {
-        insideRef.current = true;
-        const p = toLocal(e);
-        onPointerChange({ ...p, inside: true });
-      }}
-      onPointerLeave={(e) => {
-        insideRef.current = false;
-        const p = toLocal(e);
-        onPointerChange({ ...p, inside: false });
-      }}
       onPointerMove={(e) => {
         const p = toLocal(e);
-        onPointerChange({ ...p, inside: insideRef.current });
+        if (!p) return;
+        onPointerChange({ x: p.x, y: p.y, inside: true });
+      }}
+      onPointerEnter={(e) => {
+        const p = toLocal(e);
+        if (!p) return;
+        onPointerChange({ x: p.x, y: p.y, inside: true });
+      }}
+      onPointerLeave={() => {
+        onPointerChange({ x: 0, y: 0, inside: false });
       }}
     >
-      <PlayfieldBackground />
+      <div className="stars-sm" />
+      <div className="stars-md" />
+      <div className="stars-lg" />
+
+      <div className="absolute inset-0 opacity-60 [background:radial-gradient(800px_500px_at_30%_40%,rgba(124,58,237,0.18),transparent_60%),radial-gradient(700px_450px_at_70%_60%,rgba(59,130,246,0.14),transparent_60%)]" />
 
       <div className="relative h-full w-full">
-        {rendered}
-
-        <PointerCoordinates pointer={uiPointer} />
-        <PointerReticle pointer={uiPointer} />
+        {bodies.map((b) => (
+          <div
+            key={b.id}
+            className="absolute rounded-full"
+            style={{
+              width: b.radius * 2,
+              height: b.radius * 2,
+              transform: `translate(${b.pos.x - b.radius}px, ${b.pos.y - b.radius}px)`,
+              backgroundColor: b.color,
+              boxShadow: `0 0 ${Math.max(10, b.radius * 1.5)}px ${b.color}`,
+              opacity: paused ? 0.9 : 1,
+            }}
+          />
+        ))}
       </div>
     </section>
   );
