@@ -1,14 +1,13 @@
 "use client";
 
-import { useLayoutEffect, useRef, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { usePlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import { useLatestRef } from "@/src/hooks/useLatestRef";
 import { useRafLoop } from "@/src/hooks/useRafLoop";
 import PlayfieldBackground from "@/src/components/gravity/PlayfieldBackground";
 import PointerReticle from "@/src/components/gravity/PointerReticle";
 import PointerCoordinates from "./PointerCoordinates";
-import type { BodyState } from "@/src/lib/gravity/types";
-import { stepGravity } from "@/src/lib/gravity/sim";
+import { useGravityBody } from "@/src/hooks/useGravityBody";
 
 const SIM = {
   damping: 0.998,
@@ -21,49 +20,24 @@ export default function Playfield() {
   const playfieldRef = useRef<HTMLElement | null>(null);
   const bodyElRef = useRef<HTMLDivElement | null>(null);
 
-  const bodyRef = useRef<BodyState>({
-    x: 0,
-    y: 0,
-    velocityX: 0,
-    velocityY: 0,
-    mass: 1,
-  });
-
   const pointer = usePlayfieldPointer(playfieldRef, {
     clampToBounds: true,
   });
 
   const pointerRef = useLatestRef(pointer);
 
-  useLayoutEffect(() => {
-    const el = playfieldRef.current;
-    const bodyEl = bodyElRef.current;
-    if (!el || !bodyEl) return;
-
-    const r = el.getBoundingClientRect();
-    const body = bodyRef.current;
-
-    body.x = r.width / 2;
-    body.y = r.height / 2;
-    body.velocityX = 0;
-    body.velocityY = 0;
-
-    bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
-  }, []);
+  const { step } = useGravityBody({
+    playfieldRef,
+    bodyElRef,
+    pointerRef,
+    sim: SIM,
+  });
 
   const onFrame = useCallback(
     (t: number, dt: number) => {
-      const bodyEl = bodyElRef.current;
-      if (!bodyEl) return;
-
-      const body = bodyRef.current;
-      const p = pointerRef.current;
-
-      stepGravity(body, { x: p.x, y: p.y }, dt, SIM);
-
-      bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
+      step(t, dt);
     },
-    [pointerRef],
+    [step],
   );
 
   useRafLoop(onFrame);
