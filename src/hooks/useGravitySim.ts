@@ -81,6 +81,13 @@ function collideWithBounds(b: Body, bounds: { w: number; h: number }) {
   }
 }
 
+function loadGravityStrength() {
+  if (typeof window === "undefined") return 1;
+  const raw = window.localStorage.getItem("gravity:strength");
+  const n = raw == null ? 1 : Number(raw);
+  return Number.isFinite(n) ? n : 1;
+}
+
 export function useGravitySim({
   initialPos,
   initialVel = { x: 0, y: 0 },
@@ -97,6 +104,15 @@ export function useGravitySim({
   );
 
   const [paused, setPaused] = useState(false);
+
+  const [gravityStrength, setGravityStrength] = useState<number>(() =>
+    loadGravityStrength(),
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("gravity:strength", String(gravityStrength));
+  }, [gravityStrength]);
 
   const pointerRef = useRef<Pointer>({ x: 0, y: 0, inside: false });
   const boundsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
@@ -195,7 +211,7 @@ export function useGravitySim({
             const dist = mag(dx, dy);
             const s = dist + params.softening;
 
-            const aMag = (params.g * b.mass) / (s * s);
+            const aMag = ((params.g * b.mass) / (s * s)) * gravityStrength;
 
             const nx = dist > 0 ? dx / dist : 0;
             const ny = dist > 0 ? dy / dist : 0;
@@ -235,7 +251,14 @@ export function useGravitySim({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [paused, params.damping, params.g, params.maxSpeed, params.softening]);
+  }, [
+    paused,
+    params.damping,
+    params.g,
+    params.maxSpeed,
+    params.softening,
+    gravityStrength,
+  ]);
 
   return {
     bodies,
@@ -253,5 +276,8 @@ export function useGravitySim({
     removeLastBody,
 
     setPointer,
+
+    gravityStrength,
+    setGravityStrength,
   };
 }

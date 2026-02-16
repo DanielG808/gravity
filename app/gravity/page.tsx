@@ -35,6 +35,8 @@ export default function GravityPage() {
           }}
           onAddBody={() => sim.addBody(sim.boundsRef.current)}
           onRemoveBody={sim.removeLastBody}
+          gravityStrength={sim.gravityStrength}
+          onChangeGravityStrength={sim.setGravityStrength}
         />
       </div>
     </main>

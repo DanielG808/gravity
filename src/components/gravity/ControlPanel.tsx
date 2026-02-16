@@ -8,6 +8,9 @@ type ControlPanelProps = {
   onReset: () => void;
   onAddBody: () => void;
   onRemoveBody: () => void;
+
+  gravityStrength: number;
+  onChangeGravityStrength: (v: number) => void;
 };
 
 export default function ControlPanel({
@@ -16,6 +19,8 @@ export default function ControlPanel({
   onReset,
   onAddBody,
   onRemoveBody,
+  gravityStrength,
+  onChangeGravityStrength,
 }: ControlPanelProps) {
   return (
     <aside className="relative w-[320px] shrink-0 h-full border-l border-white/10 bg-[#07071a]/70 backdrop-blur">
@@ -87,6 +92,34 @@ export default function ControlPanel({
           >
             Remove Body
           </button>
+        </div>
+
+        <div className="h-px bg-white/10" />
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+              Gravity Strength
+            </div>
+            <div className="text-xs font-mono text-white/80">
+              {gravityStrength.toFixed(2)}x
+            </div>
+          </div>
+
+          <input
+            type="range"
+            min={0}
+            max={3}
+            step={0.01}
+            value={gravityStrength}
+            onChange={(e) => onChangeGravityStrength(Number(e.target.value))}
+            className="mt-3 w-full accent-white"
+          />
+
+          <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">
+            <span>0.00</span>
+            <span>3.00</span>
+          </div>
         </div>
 
         <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-3">
