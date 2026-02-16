@@ -1,5 +1,9 @@
+"use client";
+
+import * as React from "react";
 import ControlPanel from "@/src/components/gravity/ControlPanel";
 import Playfield from "@/src/components/gravity/Playfield";
+import type { BodyState } from "@/src/lib/gravity/types";
 
 export default function GravityPage() {
   return (
