@@ -1,33 +1,29 @@
 "use client";
 
-import { useLayoutEffect, useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { usePlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import { useLatestRef } from "@/src/hooks/useLatestRef";
 import { useRafLoop } from "@/src/hooks/useRafLoop";
 import PlayfieldBackground from "@/src/components/gravity/PlayfieldBackground";
 import PointerReticle from "@/src/components/gravity/PointerReticle";
 import PointerCoordinates from "./PointerCoordinates";
-import type { BodyState } from "@/src/lib/gravity/types";
-import { stepGravity } from "@/src/lib/gravity/sim";
+import { useGravityBody } from "@/src/hooks/useGravityBody";
 
 const SIM = {
   damping: 0.998,
-  g: 120_000,
+  g: 300_000,
   softening: 40,
   maxSpeed: 2200,
 };
 
-export default function Playfield() {
+type PlayfieldProps = {
+  paused: boolean;
+  resetNonce: number;
+};
+
+export default function Playfield({ paused, resetNonce }: PlayfieldProps) {
   const playfieldRef = useRef<HTMLElement | null>(null);
   const bodyElRef = useRef<HTMLDivElement | null>(null);
-
-  const bodyRef = useRef<BodyState>({
-    x: 0,
-    y: 0,
-    velocityX: 0,
-    velocityY: 0,
-    mass: 1,
-  });
 
   const pointer = usePlayfieldPointer(playfieldRef, {
     clampToBounds: true,
@@ -35,35 +31,34 @@ export default function Playfield() {
 
   const pointerRef = useLatestRef(pointer);
 
-  useLayoutEffect(() => {
-    const el = playfieldRef.current;
-    const bodyEl = bodyElRef.current;
-    if (!el || !bodyEl) return;
+  const { step, resetToCenter } = useGravityBody({
+    playfieldRef,
+    bodyElRef,
+    pointerRef,
+    sim: SIM,
+  });
 
-    const r = el.getBoundingClientRect();
-    const body = bodyRef.current;
+  useEffect(() => {
+    resetToCenter();
+  }, [resetNonce, resetToCenter]);
 
-    body.x = r.width / 2;
-    body.y = r.height / 2;
-    body.velocityX = 0;
-    body.velocityY = 0;
-
-    bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
-  }, []);
+  const wasPausedRef = useRef(false);
 
   const onFrame = useCallback(
     (t: number, dt: number) => {
-      const bodyEl = bodyElRef.current;
-      if (!bodyEl) return;
+      if (paused) {
+        wasPausedRef.current = true;
+        return;
+      }
 
-      const body = bodyRef.current;
-      const p = pointerRef.current;
+      if (wasPausedRef.current) {
+        wasPausedRef.current = false;
+        dt = 0;
+      }
 
-      stepGravity(body, { x: p.x, y: p.y }, dt, SIM);
-
-      bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
+      step(t, dt);
     },
-    [pointerRef],
+    [paused, step],
   );
 
   useRafLoop(onFrame);
