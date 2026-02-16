@@ -15,6 +15,7 @@ function clamp(v: number, min: number, max: number) {
 type Options = {
   clampToBounds?: boolean;
 };
+
 export function usePlayfieldPointer<T extends HTMLElement>(
   playfieldRef: React.RefObject<T | null>,
   opts: Options = {},

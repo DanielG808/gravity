@@ -9,6 +9,13 @@ type PlayfieldProps = {
   bodies: Body[];
   onBoundsChange: (b: { w: number; h: number }) => void;
   onPointerChange: (p: { x: number; y: number; inside: boolean }) => void;
+
+  onBodyPointerDown: (
+    id: string,
+    at: { x: number; y: number },
+  ) => (e: React.PointerEvent) => void;
+  onPlayfieldPointerMove: (at: { x: number; y: number }) => void;
+  onPlayfieldPointerUp: () => void;
 };
 
 export default function Playfield({
@@ -17,6 +24,9 @@ export default function Playfield({
   bodies,
   onBoundsChange,
   onPointerChange,
+  onBodyPointerDown,
+  onPlayfieldPointerMove,
+  onPlayfieldPointerUp,
 }: PlayfieldProps) {
   const ref = React.useRef<HTMLElement | null>(null);
 
@@ -59,11 +69,12 @@ export default function Playfield({
   return (
     <section
       ref={ref}
-      className="relative flex-1 h-full overflow-hidden bg-[#050510]"
+      className="relative flex-1 h-full overflow-hidden bg-[#050510] touch-none"
       onPointerMove={(e) => {
         const p = toLocal(e);
         if (!p) return;
         onPointerChange({ x: p.x, y: p.y, inside: true });
+        onPlayfieldPointerMove({ x: p.x, y: p.y });
       }}
       onPointerEnter={(e) => {
         const p = toLocal(e);
@@ -72,6 +83,12 @@ export default function Playfield({
       }}
       onPointerLeave={() => {
         onPointerChange({ x: 0, y: 0, inside: false });
+      }}
+      onPointerUp={() => {
+        onPlayfieldPointerUp();
+      }}
+      onPointerCancel={() => {
+        onPlayfieldPointerUp();
       }}
     >
       <div className="stars-sm" />
@@ -84,7 +101,13 @@ export default function Playfield({
         {bodies.map((b) => (
           <div
             key={b.id}
-            className="absolute rounded-full"
+            className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
+            onPointerDown={(e) => {
+              const p = toLocal(e);
+              if (!p) return;
+              onPointerChange({ x: p.x, y: p.y, inside: true });
+              onBodyPointerDown(b.id, { x: p.x, y: p.y })(e);
+            }}
             style={{
               width: b.radius * 2,
               height: b.radius * 2,
