@@ -44,6 +44,43 @@ function mag(x: number, y: number) {
   return Math.sqrt(x * x + y * y);
 }
 
+const ELASTICITY = 0.82;
+const WALL_EPS = 0.01;
+const STOP_VEL = 3;
+
+function collideWithBounds(b: Body, bounds: { w: number; h: number }) {
+  const w = bounds.w;
+  const h = bounds.h;
+  if (w <= 0 || h <= 0) return;
+
+  const r = b.radius;
+
+  const minX = r;
+  const maxX = w - r;
+  const minY = r;
+  const maxY = h - r;
+
+  if (b.pos.x < minX) {
+    b.pos.x = minX + WALL_EPS;
+    if (b.vel.x < 0) b.vel.x = -b.vel.x * ELASTICITY;
+    if (Math.abs(b.vel.x) < STOP_VEL) b.vel.x = 0;
+  } else if (b.pos.x > maxX) {
+    b.pos.x = maxX - WALL_EPS;
+    if (b.vel.x > 0) b.vel.x = -b.vel.x * ELASTICITY;
+    if (Math.abs(b.vel.x) < STOP_VEL) b.vel.x = 0;
+  }
+
+  if (b.pos.y < minY) {
+    b.pos.y = minY + WALL_EPS;
+    if (b.vel.y < 0) b.vel.y = -b.vel.y * ELASTICITY;
+    if (Math.abs(b.vel.y) < STOP_VEL) b.vel.y = 0;
+  } else if (b.pos.y > maxY) {
+    b.pos.y = maxY - WALL_EPS;
+    if (b.vel.y > 0) b.vel.y = -b.vel.y * ELASTICITY;
+    if (Math.abs(b.vel.y) < STOP_VEL) b.vel.y = 0;
+  }
+}
+
 export function useGravitySim({
   initialPos,
   initialVel = { x: 0, y: 0 },
@@ -62,6 +99,7 @@ export function useGravitySim({
   const [paused, setPaused] = useState(false);
 
   const pointerRef = useRef<Pointer>({ x: 0, y: 0, inside: false });
+  const boundsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const makeInitialBody = useCallback((): Body => {
     return {
@@ -83,6 +121,10 @@ export function useGravitySim({
 
   const setPointer = useCallback((p: Pointer) => {
     pointerRef.current = p;
+  }, []);
+
+  const setBounds = useCallback((b: { w: number; h: number }) => {
+    boundsRef.current = b;
   }, []);
 
   const reset = useCallback(() => {
@@ -140,6 +182,7 @@ export function useGravitySim({
 
       if (!paused) {
         const p = pointerRef.current;
+        const bounds = boundsRef.current;
 
         const next = bodiesRef.current.map((b) => {
           const v = { ...b.vel };
@@ -174,7 +217,9 @@ export function useGravitySim({
           pos.x += v.x * dt;
           pos.y += v.y * dt;
 
-          return { ...b, pos, vel: v };
+          const out: Body = { ...b, pos, vel: v };
+          collideWithBounds(out, bounds);
+          return out;
         });
 
         bodiesRef.current = next;
@@ -188,12 +233,16 @@ export function useGravitySim({
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
   }, [paused, params.damping, params.g, params.maxSpeed, params.softening]);
 
   return {
     bodies,
     bodiesRef,
+
+    boundsRef,
+    setBounds,
 
     paused,
     setPaused,

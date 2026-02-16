@@ -7,29 +7,11 @@ import { useGravitySim } from "@/src/hooks/useGravitySim";
 
 export default function GravityPage() {
   const sim = useGravitySim({
-    initialPos: { x: 0, y: 0 },
+    initialPos: { x: 420, y: 260 },
     initialVel: { x: 0, y: 0 },
   });
 
   const [resetNonce, setResetNonce] = React.useState(0);
-  const [bounds, setBounds] = React.useState<{ w: number; h: number }>({
-    w: 0,
-    h: 0,
-  });
-
-  const onReset = React.useCallback(() => {
-    sim.setPaused(false);
-    sim.reset();
-    setResetNonce((n) => n + 1);
-  }, [sim]);
-
-  const onAddBody = React.useCallback(() => {
-    sim.addBody(bounds.w && bounds.h ? bounds : undefined);
-  }, [sim, bounds]);
-
-  const onRemoveBody = React.useCallback(() => {
-    sim.removeLastBody();
-  }, [sim]);
 
   return (
     <main className="w-screen h-screen overflow-hidden text-white">
@@ -40,17 +22,19 @@ export default function GravityPage() {
           paused={sim.paused}
           resetNonce={resetNonce}
           bodies={sim.bodies}
-          onBoundsChange={setBounds}
+          onBoundsChange={sim.setBounds}
           onPointerChange={sim.setPointer}
         />
 
         <ControlPanel
           paused={sim.paused}
           onTogglePause={sim.togglePause}
-          onReset={onReset}
-          onAddBody={onAddBody}
-          onRemoveBody={onRemoveBody}
-          bodyCount={sim.bodies.length}
+          onReset={() => {
+            sim.reset();
+            setResetNonce((n) => n + 1);
+          }}
+          onAddBody={() => sim.addBody(sim.boundsRef.current)}
+          onRemoveBody={sim.removeLastBody}
         />
       </div>
     </main>
