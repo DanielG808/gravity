@@ -12,7 +12,7 @@ import { stepGravity } from "@/src/lib/gravity/sim";
 
 const SIM = {
   damping: 0.998,
-  g: 120_000,
+  g: 300_000,
   softening: 40,
   maxSpeed: 2200,
 };
