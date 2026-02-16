@@ -7,6 +7,11 @@ import PointerReticle from "@/src/components/gravity/PointerReticle";
 import PointerCoordinates from "./PointerCoordinates";
 import type { BodyState } from "@/src/lib/gravity/types";
 
+const DAMPING = 0.998;
+const G = 120_000;
+const SOFTENING = 40;
+const MAX_SPEED = 2200;
+
 export default function Playfield() {
   const playfieldRef = useRef<HTMLElement | null>(null);
   const bodyElRef = useRef<HTMLDivElement | null>(null);
@@ -26,16 +31,26 @@ export default function Playfield() {
     clampToBounds: true,
   });
 
+  const pointerRef = useRef(pointer);
+
+  useEffect(() => {
+    pointerRef.current = pointer;
+  }, [pointer]);
+
   useLayoutEffect(() => {
     const el = playfieldRef.current;
     const bodyEl = bodyElRef.current;
     if (!el || !bodyEl) return;
 
     const r = el.getBoundingClientRect();
-    bodyRef.current.x = r.width / 2;
-    bodyRef.current.y = r.height / 2;
+    const body = bodyRef.current;
 
-    bodyEl.style.transform = `translate3d(${bodyRef.current.x}px, ${bodyRef.current.y}px, 0)`;
+    body.x = r.width / 2;
+    body.y = r.height / 2;
+    body.velocityX = 0;
+    body.velocityY = 0;
+
+    bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
   }, []);
 
   useEffect(() => {
@@ -46,8 +61,34 @@ export default function Playfield() {
       const dt = Math.min(0.05, (t - last) / 1000);
       lastTRef.current = t;
 
+      const body = bodyRef.current;
+      const p = pointerRef.current;
+
+      const dx = p.x - body.x;
+      const dy = p.y - body.y;
+
+      const distSq = dx * dx + dy * dy + SOFTENING * SOFTENING;
+      const dist = Math.sqrt(distSq);
+
+      const accel = (G * body.mass) / distSq;
+
+      body.velocityX += (dx / dist) * accel * dt;
+      body.velocityY += (dy / dist) * accel * dt;
+
+      const speed = Math.hypot(body.velocityX, body.velocityY);
+      if (speed > MAX_SPEED) {
+        const s = MAX_SPEED / speed;
+        body.velocityX *= s;
+        body.velocityY *= s;
+      }
+
+      body.x += body.velocityX * dt;
+      body.y += body.velocityY * dt;
+
+      body.velocityX *= DAMPING;
+      body.velocityY *= DAMPING;
+
       if (bodyEl) {
-        const body = bodyRef.current;
         bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
       }
 
@@ -73,7 +114,7 @@ export default function Playfield() {
       <div className="relative h-full w-full">
         <div
           ref={bodyElRef}
-          className="absolute left-0 top-0 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none bg-white/90 shadow-[0_0_18px_rgba(147,197,253,0.65),0_0_42px_rgba(124,58,237,0.35)]"
+          className="absolute left-0 top-0 z-30 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/95 shadow-[0_0_22px_rgba(147,197,253,0.8),0_0_60px_rgba(124,58,237,0.45)] ring-2 ring-cyan-200/70"
         />
 
         <PointerCoordinates pointer={pointer} />
