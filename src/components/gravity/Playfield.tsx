@@ -1,23 +1,25 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useCallback } from "react";
 import { usePlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
+import { useLatestRef } from "@/src/hooks/useLatestRef";
+import { useRafLoop } from "@/src/hooks/useRafLoop";
 import PlayfieldBackground from "@/src/components/gravity/PlayfieldBackground";
 import PointerReticle from "@/src/components/gravity/PointerReticle";
 import PointerCoordinates from "./PointerCoordinates";
 import type { BodyState } from "@/src/lib/gravity/types";
+import { stepGravity } from "@/src/lib/gravity/sim";
 
-const DAMPING = 0.998;
-const G = 120_000;
-const SOFTENING = 40;
-const MAX_SPEED = 2200;
+const SIM = {
+  damping: 0.998,
+  g: 120_000,
+  softening: 40,
+  maxSpeed: 2200,
+};
 
 export default function Playfield() {
   const playfieldRef = useRef<HTMLElement | null>(null);
   const bodyElRef = useRef<HTMLDivElement | null>(null);
-
-  const rafIdRef = useRef<number | null>(null);
-  const lastTRef = useRef<number | null>(null);
 
   const bodyRef = useRef<BodyState>({
     x: 0,
@@ -31,11 +33,7 @@ export default function Playfield() {
     clampToBounds: true,
   });
 
-  const pointerRef = useRef(pointer);
-
-  useEffect(() => {
-    pointerRef.current = pointer;
-  }, [pointer]);
+  const pointerRef = useLatestRef(pointer);
 
   useLayoutEffect(() => {
     const el = playfieldRef.current;
@@ -53,56 +51,22 @@ export default function Playfield() {
     bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
   }, []);
 
-  useEffect(() => {
-    function tick(t: number) {
+  const onFrame = useCallback(
+    (t: number, dt: number) => {
       const bodyEl = bodyElRef.current;
-
-      const last = lastTRef.current ?? t;
-      const dt = Math.min(0.05, (t - last) / 1000);
-      lastTRef.current = t;
+      if (!bodyEl) return;
 
       const body = bodyRef.current;
       const p = pointerRef.current;
 
-      const dx = p.x - body.x;
-      const dy = p.y - body.y;
+      stepGravity(body, { x: p.x, y: p.y }, dt, SIM);
 
-      const distSq = dx * dx + dy * dy + SOFTENING * SOFTENING;
-      const dist = Math.sqrt(distSq);
+      bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
+    },
+    [pointerRef],
+  );
 
-      const accel = (G * body.mass) / distSq;
-
-      body.velocityX += (dx / dist) * accel * dt;
-      body.velocityY += (dy / dist) * accel * dt;
-
-      const speed = Math.hypot(body.velocityX, body.velocityY);
-      if (speed > MAX_SPEED) {
-        const s = MAX_SPEED / speed;
-        body.velocityX *= s;
-        body.velocityY *= s;
-      }
-
-      body.x += body.velocityX * dt;
-      body.y += body.velocityY * dt;
-
-      body.velocityX *= DAMPING;
-      body.velocityY *= DAMPING;
-
-      if (bodyEl) {
-        bodyEl.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
-      }
-
-      rafIdRef.current = requestAnimationFrame(tick);
-    }
-
-    rafIdRef.current = requestAnimationFrame(tick);
-
-    return () => {
-      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = null;
-      lastTRef.current = null;
-    };
-  }, []);
+  useRafLoop(onFrame);
 
   return (
     <section
