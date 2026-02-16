@@ -1,3 +1,4 @@
+import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Vec2 = { x: number; y: number };
@@ -111,6 +112,13 @@ function loadGravityStrength() {
   return Number.isFinite(n) ? n : 1;
 }
 
+function clamp(v: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, v));
+}
+
+const DRAG_MAX_RELEASE_SPEED = 1400;
+const DRAG_VELOCITY_SMOOTHING = 0.35;
+
 export function useGravitySim({
   initialPos,
   initialVel = { x: 0, y: 0 },
@@ -128,9 +136,12 @@ export function useGravitySim({
 
   const [paused, setPaused] = useState(false);
 
-  const [gravityStrength, setGravityStrength] = useState<number>(() =>
-    loadGravityStrength(),
-  );
+  const [gravityStrength, setGravityStrength] = useState<number>(1);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setGravityStrength(loadGravityStrength());
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -139,6 +150,14 @@ export function useGravitySim({
 
   const pointerRef = useRef<Pointer>({ x: 0, y: 0, inside: false });
   const boundsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  const draggingRef = useRef<{
+    id: string;
+    offset: Vec2;
+    lastPos: Vec2;
+    lastT: number;
+    releaseVel: Vec2;
+  } | null>(null);
 
   const makeInitialBody = useCallback((): Body => {
     return {
@@ -151,10 +170,22 @@ export function useGravitySim({
     };
   }, [initialPos, initialVel]);
 
-  const initialBodies = useMemo(() => [makeInitialBody()], [makeInitialBody]);
+  const stableInitialBodies = useMemo<Body[]>(
+    () => [
+      {
+        id: "seed",
+        pos: { ...initialPos },
+        vel: { ...initialVel },
+        mass: 5,
+        radius: 14,
+        color: "hsl(230 70% 65%)",
+      },
+    ],
+    [initialPos, initialVel],
+  );
 
-  const bodiesRef = useRef<Body[]>(initialBodies);
-  const [bodies, setBodies] = useState<Body[]>(() => initialBodies);
+  const bodiesRef = useRef<Body[]>(stableInitialBodies);
+  const [bodies, setBodies] = useState<Body[]>(() => stableInitialBodies);
 
   const rafRef = useRef<number | null>(null);
   const lastRef = useRef<number | null>(null);
@@ -170,9 +201,19 @@ export function useGravitySim({
   const reset = useCallback(() => {
     const next = [makeInitialBody()];
     bodiesRef.current = next;
+    draggingRef.current = null;
     lastRef.current = null;
     setBodies(next);
   }, [makeInitialBody]);
+
+  const resetRef = useRef(reset);
+  useEffect(() => {
+    resetRef.current = reset;
+  }, [reset]);
+
+  useEffect(() => {
+    resetRef.current();
+  }, []);
 
   const togglePause = useCallback(() => {
     setPaused((p) => !p);
@@ -212,6 +253,93 @@ export function useGravitySim({
     if (cur.length <= 1) return;
     const next = cur.slice(0, -1);
     bodiesRef.current = next;
+    if (
+      draggingRef.current &&
+      !next.some((b) => b.id === draggingRef.current?.id)
+    ) {
+      draggingRef.current = null;
+    }
+    setBodies(next);
+  }, []);
+
+  const onBodyPointerDown = useCallback(
+    (id: string, at: Vec2) => (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const b = bodiesRef.current.find((x) => x.id === id);
+      if (!b) return;
+
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
+      draggingRef.current = {
+        id,
+        offset: { x: b.pos.x - at.x, y: b.pos.y - at.y },
+        lastPos: { x: b.pos.x, y: b.pos.y },
+        lastT: performance.now(),
+        releaseVel: { ...b.vel },
+      };
+
+      const next = bodiesRef.current.map((x) =>
+        x.id === id ? { ...x, vel: { x: 0, y: 0 } } : x,
+      );
+      bodiesRef.current = next;
+      setBodies(next);
+    },
+    [],
+  );
+
+  const onPlayfieldPointerMove = useCallback((at: Vec2) => {
+    const d = draggingRef.current;
+    if (!d) return;
+
+    const now = performance.now();
+    const nx = at.x + d.offset.x;
+    const ny = at.y + d.offset.y;
+
+    const dt = Math.max(0.001, (now - d.lastT) / 1000);
+    const instVx = (nx - d.lastPos.x) / dt;
+    const instVy = (ny - d.lastPos.y) / dt;
+
+    d.releaseVel.x =
+      d.releaseVel.x + (instVx - d.releaseVel.x) * DRAG_VELOCITY_SMOOTHING;
+    d.releaseVel.y =
+      d.releaseVel.y + (instVy - d.releaseVel.y) * DRAG_VELOCITY_SMOOTHING;
+
+    d.lastPos = { x: nx, y: ny };
+    d.lastT = now;
+
+    const next = bodiesRef.current.map((b) => {
+      if (b.id !== d.id) return b;
+      return { ...b, pos: { x: nx, y: ny }, vel: { x: 0, y: 0 } };
+    });
+
+    bodiesRef.current = next;
+    setBodies(next);
+  }, []);
+
+  const onPlayfieldPointerUp = useCallback(() => {
+    const d = draggingRef.current;
+    if (!d) return;
+
+    const vx = clamp(
+      d.releaseVel.x,
+      -DRAG_MAX_RELEASE_SPEED,
+      DRAG_MAX_RELEASE_SPEED,
+    );
+    const vy = clamp(
+      d.releaseVel.y,
+      -DRAG_MAX_RELEASE_SPEED,
+      DRAG_MAX_RELEASE_SPEED,
+    );
+
+    const next = bodiesRef.current.map((b) => {
+      if (b.id !== d.id) return b;
+      return { ...b, vel: { x: vx, y: vy } };
+    });
+
+    draggingRef.current = null;
+    bodiesRef.current = next;
     setBodies(next);
   }, []);
 
@@ -224,8 +352,11 @@ export function useGravitySim({
       if (!paused) {
         const p = pointerRef.current;
         const bounds = boundsRef.current;
+        const draggingId = draggingRef.current?.id ?? null;
 
         const next = bodiesRef.current.map((b) => {
+          if (draggingId && b.id === draggingId) return b;
+
           const v = { ...b.vel };
           const pos = { ...b.pos };
 
@@ -304,5 +435,10 @@ export function useGravitySim({
 
     gravityStrength,
     setGravityStrength,
+
+    onBodyPointerDown,
+    onPlayfieldPointerMove,
+    onPlayfieldPointerUp,
+    draggingId: draggingRef.current?.id ?? null,
   };
 }

@@ -24,6 +24,9 @@ export default function GravityPage() {
           bodies={sim.bodies}
           onBoundsChange={sim.setBounds}
           onPointerChange={sim.setPointer}
+          onBodyPointerDown={sim.onBodyPointerDown}
+          onPlayfieldPointerMove={sim.onPlayfieldPointerMove}
+          onPlayfieldPointerUp={sim.onPlayfieldPointerUp}
         />
 
         <ControlPanel
