@@ -1,3 +1,12 @@
+import Playfield from "@/src/components/gravity/Playfield";
+
 export default function GravityPage() {
-  return <div>GravityPage</div>;
+  return (
+    <main className="w-screen h-screen overflow-hidden text-white">
+      <div className="relative w-full h-full flex">
+        <div className="absolute inset-0 pointer-events-none [background:radial-gradient(900px_600px_at_20%_30%,rgba(59,130,246,0.10),transparent_60%),radial-gradient(900px_600px_at_80%_70%,rgba(124,58,237,0.10),transparent_60%)]" />
+        <Playfield />
+      </div>
+    </main>
+  );
 }
