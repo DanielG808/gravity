@@ -1,3 +1,4 @@
+import ControlPanel from "@/src/components/gravity/ControlPanel";
 import Playfield from "@/src/components/gravity/Playfield";
 
 export default function GravityPage() {
@@ -6,6 +7,7 @@ export default function GravityPage() {
       <div className="relative w-full h-full flex">
         <div className="absolute inset-0 pointer-events-none [background:radial-gradient(900px_600px_at_20%_30%,rgba(59,130,246,0.10),transparent_60%),radial-gradient(900px_600px_at_80%_70%,rgba(124,58,237,0.10),transparent_60%)]" />
         <Playfield />
+        <ControlPanel />
       </div>
     </main>
   );
