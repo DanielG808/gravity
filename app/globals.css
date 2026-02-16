@@ -25,3 +25,53 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   overflow: hidden;
 }
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.stars-sm,
+.stars-md,
+.stars-lg {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  animation: star-twinkle 4s ease-in-out infinite;
+}
+
+.stars-sm {
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, white, transparent),
+    radial-gradient(1px 1px at 120px 80px, white, transparent),
+    radial-gradient(1px 1px at 220px 150px, white, transparent),
+    radial-gradient(1px 1px at 320px 40px, white, transparent),
+    radial-gradient(1px 1px at 420px 200px, white, transparent);
+  background-size: 200px 200px;
+  opacity: 0.5;
+}
+
+.stars-md {
+  background-image:
+    radial-gradient(1.5px 1.5px at 60px 90px, white, transparent),
+    radial-gradient(1.5px 1.5px at 160px 140px, white, transparent),
+    radial-gradient(1.5px 1.5px at 260px 50px, white, transparent),
+    radial-gradient(1.5px 1.5px at 360px 180px, white, transparent);
+  background-size: 300px 300px;
+  opacity: 0.7;
+  animation-duration: 6s;
+}
+
+.stars-lg {
+  background-image:
+    radial-gradient(2px 2px at 100px 120px, white, transparent),
+    radial-gradient(2px 2px at 300px 220px, white, transparent);
+  background-size: 400px 400px;
+  opacity: 0.9;
+  animation-duration: 8s;
+}
