@@ -165,8 +165,19 @@ export default function Playfield({
                     transform: "translate(-50%, -50%)",
                     background:
                       "radial-gradient(circle, rgba(255,220,140,0.95), rgba(255,90,40,0.65), rgba(255,40,0,0.0) 70%)",
-                    filter: "blur(0px)",
                     animation: "explode 420ms ease-out forwards",
+                  }}
+                />
+
+                <div
+                  className="absolute rounded-full border"
+                  style={{
+                    width: b.radius * 5,
+                    height: b.radius * 5,
+                    transform: "translate(-50%, -50%)",
+                    borderColor: "rgba(255,200,120,0.8)",
+                    borderWidth: 2,
+                    animation: "shockwave 420ms ease-out forwards",
                   }}
                 />
               </div>
