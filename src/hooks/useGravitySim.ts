@@ -197,6 +197,17 @@ function solveCollisions(bodies: Body[]) {
   }
 }
 
+const SHIP_RADIUS = 18;
+
+function sameIds(a: string[], b: string[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 export function useGravitySim({
   initialPos,
   initialVel = { x: 0, y: 0 },
@@ -269,6 +280,9 @@ export function useGravitySim({
   const rafRef = useRef<number | null>(null);
   const lastRef = useRef<number | null>(null);
 
+  const [shipCollisions, setShipCollisions] = useState<string[]>([]);
+  const shipCollisionsRef = useRef<string[]>([]);
+
   const setPointer = useCallback((p: Pointer) => {
     pointerRef.current = p;
   }, []);
@@ -282,6 +296,8 @@ export function useGravitySim({
     bodiesRef.current = next;
     draggingRef.current = null;
     lastRef.current = null;
+    shipCollisionsRef.current = [];
+    setShipCollisions([]);
     setBodies(next);
   }, [makeInitialBody]);
 
@@ -484,6 +500,27 @@ export function useGravitySim({
           collideWithBounds(next[i], bounds);
         }
 
+        const hitIds: string[] = [];
+        if (p.inside) {
+          const shipR = SHIP_RADIUS;
+
+          for (let i = 0; i < next.length; i++) {
+            const b = next[i];
+            if (draggingId && b.id === draggingId) continue;
+
+            const dx = b.pos.x - p.x;
+            const dy = b.pos.y - p.y;
+            const rr = b.radius + shipR;
+
+            if (dx * dx + dy * dy <= rr * rr) hitIds.push(b.id);
+          }
+        }
+
+        if (!sameIds(shipCollisionsRef.current, hitIds)) {
+          shipCollisionsRef.current = hitIds;
+          setShipCollisions(hitIds);
+        }
+
         bodiesRef.current = next;
         setBodies(next);
       }
@@ -530,5 +567,9 @@ export function useGravitySim({
     onPlayfieldPointerMove,
     onPlayfieldPointerUp,
     draggingId: draggingRef.current?.id ?? null,
+
+    shipRadius: SHIP_RADIUS,
+    shipCollisions,
+    shipHit: shipCollisions.length > 0,
   };
 }

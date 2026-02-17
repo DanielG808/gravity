@@ -11,6 +11,7 @@ type PlayfieldProps = {
   paused: boolean;
   resetNonce: number;
   bodies: Body[];
+  shipHit: boolean;
   onBoundsChange: (b: { w: number; h: number }) => void;
   onPointerChange: (p: { x: number; y: number; inside: boolean }) => void;
 
@@ -42,6 +43,7 @@ export default function Playfield({
   paused,
   resetNonce,
   bodies,
+  shipHit,
   onBoundsChange,
   onPointerChange,
   onBodyPointerDown,
@@ -140,7 +142,7 @@ export default function Playfield({
       <div className="relative h-full w-full">
         <PointerAim pointer={pointer} bodies={bodies} />
         <PointerReticle pointer={pointer} size={10} />
-        <PlayerShip pointer={pointer} />
+        <PlayerShip pointer={pointer} hit={shipHit} />
 
         {bodies.map((b) => (
           <div

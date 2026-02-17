@@ -22,6 +22,7 @@ export default function GravityPage() {
           paused={sim.paused}
           resetNonce={resetNonce}
           bodies={sim.bodies}
+          shipHit={sim.shipHit}
           onBoundsChange={sim.setBounds}
           onPointerChange={sim.setPointer}
           onBodyPointerDown={sim.onBodyPointerDown}
