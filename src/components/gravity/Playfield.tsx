@@ -2,6 +2,10 @@
 
 import * as React from "react";
 import type { Body } from "@/src/hooks/useGravitySim";
+import type { PlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
+import PointerReticle from "@/src/components/gravity/PointerReticle";
+import PointerAim from "@/src/components/gravity/PointerAim";
+import PlayerShip from "./PlayerShip";
 
 type PlayfieldProps = {
   paused: boolean;
@@ -18,6 +22,22 @@ type PlayfieldProps = {
   onPlayfieldPointerUp: () => void;
 };
 
+function clamp(v: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, v));
+}
+
+function toPointer(
+  x: number,
+  y: number,
+  inside: boolean,
+  w: number,
+  h: number,
+): PlayfieldPointer {
+  const nx = w > 0 ? clamp((x / w) * 2 - 1, -1, 1) : 0;
+  const ny = h > 0 ? clamp((y / h) * 2 - 1, -1, 1) : 0;
+  return { x, y, nx, ny, inside };
+}
+
 export default function Playfield({
   paused,
   resetNonce,
@@ -29,11 +49,21 @@ export default function Playfield({
   onPlayfieldPointerUp,
 }: PlayfieldProps) {
   const ref = React.useRef<HTMLElement | null>(null);
+  const boundsRef = React.useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  const [pointer, setPointer] = React.useState<PlayfieldPointer>({
+    x: 0,
+    y: 0,
+    nx: 0,
+    ny: 0,
+    inside: false,
+  });
 
   const measure = React.useCallback(() => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    boundsRef.current = { w: r.width, h: r.height };
     onBoundsChange({ w: r.width, h: r.height });
   }, [onBoundsChange]);
 
@@ -66,23 +96,33 @@ export default function Playfield({
     return { x, y, w: r.width, h: r.height };
   }, []);
 
+  const applyPointer = React.useCallback(
+    (p: { x: number; y: number; inside: boolean }) => {
+      const { w, h } = boundsRef.current;
+      const next = toPointer(p.x, p.y, p.inside, w, h);
+      setPointer(next);
+      onPointerChange({ x: next.x, y: next.y, inside: next.inside });
+    },
+    [onPointerChange],
+  );
+
   return (
     <section
       ref={ref}
-      className="relative flex-1 h-full overflow-hidden bg-[#050510] touch-none"
+      className="relative flex-1 h-full overflow-hidden bg-[#050510] touch-none cursor-none"
       onPointerMove={(e) => {
         const p = toLocal(e);
         if (!p) return;
-        onPointerChange({ x: p.x, y: p.y, inside: true });
+        applyPointer({ x: p.x, y: p.y, inside: true });
         onPlayfieldPointerMove({ x: p.x, y: p.y });
       }}
       onPointerEnter={(e) => {
         const p = toLocal(e);
         if (!p) return;
-        onPointerChange({ x: p.x, y: p.y, inside: true });
+        applyPointer({ x: p.x, y: p.y, inside: true });
       }}
       onPointerLeave={() => {
-        onPointerChange({ x: 0, y: 0, inside: false });
+        applyPointer({ x: 0, y: 0, inside: false });
       }}
       onPointerUp={() => {
         onPlayfieldPointerUp();
@@ -98,6 +138,10 @@ export default function Playfield({
       <div className="absolute inset-0 opacity-60 [background:radial-gradient(800px_500px_at_30%_40%,rgba(124,58,237,0.18),transparent_60%),radial-gradient(700px_450px_at_70%_60%,rgba(59,130,246,0.14),transparent_60%)]" />
 
       <div className="relative h-full w-full">
+        <PointerAim pointer={pointer} bodies={bodies} />
+        <PointerReticle pointer={pointer} size={10} />
+        <PlayerShip pointer={pointer} />
+
         {bodies.map((b) => (
           <div
             key={b.id}
@@ -105,7 +149,7 @@ export default function Playfield({
             onPointerDown={(e) => {
               const p = toLocal(e);
               if (!p) return;
-              onPointerChange({ x: p.x, y: p.y, inside: true });
+              applyPointer({ x: p.x, y: p.y, inside: true });
               onBodyPointerDown(b.id, { x: p.x, y: p.y })(e);
             }}
             style={{
