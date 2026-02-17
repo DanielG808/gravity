@@ -12,6 +12,8 @@ type PlayfieldProps = {
   resetNonce: number;
   bodies: Body[];
   shipHit: boolean;
+  shipDead: boolean;
+  shipExplosion: { x: number; y: number } | null;
   onBoundsChange: (b: { w: number; h: number }) => void;
   onPointerChange: (p: { x: number; y: number; inside: boolean }) => void;
 
@@ -44,6 +46,8 @@ export default function Playfield({
   resetNonce,
   bodies,
   shipHit,
+  shipDead,
+  shipExplosion,
   onBoundsChange,
   onPointerChange,
   onBodyPointerDown,
@@ -142,7 +146,43 @@ export default function Playfield({
       <div className="relative h-full w-full">
         <PointerAim pointer={pointer} bodies={bodies} />
         <PointerReticle pointer={pointer} size={10} />
-        <PlayerShip pointer={pointer} hit={shipHit} />
+
+        {!shipDead ? <PlayerShip pointer={pointer} hit={shipHit} /> : null}
+
+        {shipExplosion ? (
+          <div
+            className="absolute pointer-events-none ship-explosion"
+            style={{
+              transform: `translate(${shipExplosion.x}px, ${shipExplosion.y}px)`,
+              opacity: paused ? 0.9 : 1,
+            }}
+          >
+            <div
+              className="absolute ship-explosion-core"
+              style={{
+                width: 24 * 6,
+                height: 24 * 6,
+                transform: "translate(-50%, -50%)",
+                background:
+                  "radial-gradient(circle, rgba(255,235,170,0.98), rgba(255,110,60,0.72), rgba(255,40,0,0.0) 70%)",
+                animation: "explode 420ms ease-out forwards",
+              }}
+            />
+            <div
+              className="absolute ship-explosion-ring"
+              style={{
+                width: 24 * 7,
+                height: 24 * 7,
+                transform: "translate(-50%, -50%)",
+                borderColor: "rgba(255,210,140,0.85)",
+                borderWidth: 2,
+                borderStyle: "solid",
+                borderRadius: 9999,
+                animation: "shockwave 420ms ease-out forwards",
+              }}
+            />
+          </div>
+        ) : null}
 
         {bodies.map((b) => {
           const exploding = Boolean(b.destroyed);
@@ -168,7 +208,6 @@ export default function Playfield({
                     animation: "explode 420ms ease-out forwards",
                   }}
                 />
-
                 <div
                   className="absolute rounded-full border"
                   style={{

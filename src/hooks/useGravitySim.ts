@@ -296,6 +296,32 @@ export function useGravitySim({
   const shipInvulnUntilRef = useRef<number>(0);
   const [shipHp, setShipHp] = useState<number>(SHIP_MAX_HP);
 
+  const [shipExplosion, setShipExplosion] = useState<Vec2 | null>(null);
+  const explosionTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (explosionTimeoutRef.current != null) {
+        window.clearTimeout(explosionTimeoutRef.current);
+        explosionTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const triggerShipExplosion = useCallback((pos: Vec2) => {
+    if (explosionTimeoutRef.current != null) {
+      window.clearTimeout(explosionTimeoutRef.current);
+      explosionTimeoutRef.current = null;
+    }
+
+    setShipExplosion(pos);
+
+    explosionTimeoutRef.current = window.setTimeout(() => {
+      setShipExplosion(null);
+      explosionTimeoutRef.current = null;
+    }, EXPLOSION_DURATION);
+  }, []);
+
   const setPointer = useCallback((p: Pointer) => {
     pointerRef.current = p;
   }, []);
@@ -314,6 +340,13 @@ export function useGravitySim({
     shipHpRef.current = SHIP_MAX_HP;
     shipInvulnUntilRef.current = 0;
     setShipHp(SHIP_MAX_HP);
+
+    if (explosionTimeoutRef.current != null) {
+      window.clearTimeout(explosionTimeoutRef.current);
+      explosionTimeoutRef.current = null;
+    }
+    setShipExplosion(null);
+
     setBodies(next);
   }, [makeInitialBody]);
 
@@ -517,7 +550,7 @@ export function useGravitySim({
 
         const hitSet = new Set<string>();
 
-        if (p.inside) {
+        if (p.inside && shipHpRef.current > 0) {
           const shipR = SHIP_RADIUS;
 
           for (let i = 0; i < next.length; i++) {
@@ -533,11 +566,17 @@ export function useGravitySim({
               hitSet.add(b.id);
 
               if (now >= shipInvulnUntilRef.current && shipHpRef.current > 0) {
+                const prevHp = shipHpRef.current;
                 const dmg = damageFromBody(b);
-                const nextHp = clamp(shipHpRef.current - dmg, 0, SHIP_MAX_HP);
+                const nextHp = clamp(prevHp - dmg, 0, SHIP_MAX_HP);
+
                 shipHpRef.current = nextHp;
                 shipInvulnUntilRef.current = now + SHIP_INVULN_MS;
                 setShipHp(nextHp);
+
+                if (prevHp > 0 && nextHp === 0) {
+                  triggerShipExplosion({ x: p.x, y: p.y });
+                }
               }
             }
           }
@@ -601,7 +640,10 @@ export function useGravitySim({
     params.maxSpeed,
     params.softening,
     gravityStrength,
+    triggerShipExplosion,
   ]);
+
+  const shipDead = shipHp <= 0;
 
   return {
     bodies,
@@ -630,10 +672,14 @@ export function useGravitySim({
 
     shipRadius: SHIP_RADIUS,
     shipCollisions,
-    shipHit: shipCollisions.length > 0,
+    shipHit: !shipDead && shipCollisions.length > 0,
 
     shipHp,
     shipMaxHp: SHIP_MAX_HP,
-    shipInvulnerable: performance.now() < shipInvulnUntilRef.current,
+    shipInvulnerable:
+      !shipDead && performance.now() < shipInvulnUntilRef.current,
+
+    shipDead,
+    shipExplosion,
   };
 }
