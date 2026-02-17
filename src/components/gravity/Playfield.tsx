@@ -144,26 +144,56 @@ export default function Playfield({
         <PointerReticle pointer={pointer} size={10} />
         <PlayerShip pointer={pointer} hit={shipHit} />
 
-        {bodies.map((b) => (
-          <div
-            key={b.id}
-            className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
-            onPointerDown={(e) => {
-              const p = toLocal(e);
-              if (!p) return;
-              applyPointer({ x: p.x, y: p.y, inside: true });
-              onBodyPointerDown(b.id, { x: p.x, y: p.y })(e);
-            }}
-            style={{
-              width: b.radius * 2,
-              height: b.radius * 2,
-              transform: `translate(${b.pos.x - b.radius}px, ${b.pos.y - b.radius}px)`,
-              backgroundColor: b.color,
-              boxShadow: `0 0 ${Math.max(10, b.radius * 1.5)}px ${b.color}`,
-              opacity: paused ? 0.9 : 1,
-            }}
-          />
-        ))}
+        {bodies.map((b) => {
+          const exploding = Boolean(b.destroyed);
+
+          if (exploding) {
+            return (
+              <div
+                key={b.id}
+                className="absolute pointer-events-none"
+                style={{
+                  transform: `translate(${b.pos.x}px, ${b.pos.y}px)`,
+                  opacity: paused ? 0.9 : 1,
+                }}
+              >
+                <div
+                  className="absolute rounded-full"
+                  style={{
+                    width: b.radius * 4,
+                    height: b.radius * 4,
+                    transform: "translate(-50%, -50%)",
+                    background:
+                      "radial-gradient(circle, rgba(255,220,140,0.95), rgba(255,90,40,0.65), rgba(255,40,0,0.0) 70%)",
+                    filter: "blur(0px)",
+                    animation: "explode 420ms ease-out forwards",
+                  }}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={b.id}
+              className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => {
+                const p = toLocal(e);
+                if (!p) return;
+                applyPointer({ x: p.x, y: p.y, inside: true });
+                onBodyPointerDown(b.id, { x: p.x, y: p.y })(e);
+              }}
+              style={{
+                width: b.radius * 2,
+                height: b.radius * 2,
+                transform: `translate(${b.pos.x - b.radius}px, ${b.pos.y - b.radius}px)`,
+                backgroundColor: b.color,
+                boxShadow: `0 0 ${Math.max(10, b.radius * 1.5)}px ${b.color}`,
+                opacity: paused ? 0.9 : 1,
+              }}
+            />
+          );
+        })}
       </div>
     </section>
   );

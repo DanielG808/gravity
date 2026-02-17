@@ -10,6 +10,8 @@ export type Body = {
   mass: number;
   radius: number;
   color: string;
+  destroyed?: boolean;
+  destroyedAt?: number;
 };
 
 type Pointer = {
@@ -197,7 +199,8 @@ function solveCollisions(bodies: Body[]) {
   }
 }
 
-const SHIP_RADIUS = 18;
+const SHIP_RADIUS = 24;
+const EXPLOSION_DURATION = 420;
 
 function sameIds(a: string[], b: string[]) {
   if (a === b) return true;
@@ -224,7 +227,6 @@ export function useGravitySim({
   );
 
   const [paused, setPaused] = useState(false);
-
   const [gravityStrength, setGravityStrength] = useState<number>(1);
 
   useEffect(() => {
@@ -364,6 +366,7 @@ export function useGravitySim({
 
       const b = bodiesRef.current.find((x) => x.id === id);
       if (!b) return;
+      if (b.destroyed) return;
 
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
@@ -406,6 +409,7 @@ export function useGravitySim({
 
     const next = bodiesRef.current.map((b) => {
       if (b.id !== d.id) return b;
+      if (b.destroyed) return b;
       return { ...b, pos: { x: nx, y: ny }, vel: { x: 0, y: 0 } };
     });
 
@@ -430,6 +434,7 @@ export function useGravitySim({
 
     const next = bodiesRef.current.map((b) => {
       if (b.id !== d.id) return b;
+      if (b.destroyed) return b;
       return { ...b, vel: { x: vx, y: vy } };
     });
 
@@ -448,8 +453,10 @@ export function useGravitySim({
         const p = pointerRef.current;
         const bounds = boundsRef.current;
         const draggingId = draggingRef.current?.id ?? null;
+        const now = performance.now();
 
-        const next = bodiesRef.current.map((b) => {
+        let next = bodiesRef.current.map((b) => {
+          if (b.destroyed) return b;
           if (draggingId && b.id === draggingId) return b;
 
           const v = { ...b.vel };
@@ -489,37 +496,66 @@ export function useGravitySim({
 
         for (let i = 0; i < next.length; i++) {
           const b = next[i];
+          if (b.destroyed) continue;
           const r = massToRadius(b.mass);
           if (b.radius !== r) next[i] = { ...b, radius: r };
         }
 
-        solveCollisions(next);
+        const hitSet = new Set<string>();
 
-        for (let i = 0; i < next.length; i++) {
-          if (draggingId && next[i].id === draggingId) continue;
-          collideWithBounds(next[i], bounds);
-        }
-
-        const hitIds: string[] = [];
         if (p.inside) {
           const shipR = SHIP_RADIUS;
 
           for (let i = 0; i < next.length; i++) {
             const b = next[i];
+            if (b.destroyed) continue;
             if (draggingId && b.id === draggingId) continue;
 
             const dx = b.pos.x - p.x;
             const dy = b.pos.y - p.y;
             const rr = b.radius + shipR;
 
-            if (dx * dx + dy * dy <= rr * rr) hitIds.push(b.id);
+            if (dx * dx + dy * dy <= rr * rr) hitSet.add(b.id);
           }
         }
+
+        const hitIds = hitSet.size ? Array.from(hitSet) : [];
 
         if (!sameIds(shipCollisionsRef.current, hitIds)) {
           shipCollisionsRef.current = hitIds;
           setShipCollisions(hitIds);
         }
+
+        if (hitSet.size) {
+          next = next.map((b) => {
+            if (!hitSet.has(b.id)) return b;
+            if (b.destroyed) return b;
+            return {
+              ...b,
+              destroyed: true,
+              destroyedAt: now,
+              vel: { x: 0, y: 0 },
+            };
+          });
+
+          if (draggingRef.current && hitSet.has(draggingRef.current.id)) {
+            draggingRef.current = null;
+          }
+        }
+
+        const active = next.filter((b) => !b.destroyed);
+        solveCollisions(active);
+
+        for (let i = 0; i < active.length; i++) {
+          if (draggingId && active[i].id === draggingId) continue;
+          collideWithBounds(active[i], bounds);
+        }
+
+        next = next.filter((b) => {
+          if (!b.destroyed) return true;
+          const at = b.destroyedAt ?? now;
+          return now - at < EXPLOSION_DURATION;
+        });
 
         bodiesRef.current = next;
         setBodies(next);
