@@ -146,29 +146,39 @@ Large white-blue energy burst
   }
 }
 
-/*
-Reusable classes
-*/
-
 .ship-explosion-core {
   position: absolute;
   border-radius: 9999px;
   background: radial-gradient(
     circle,
     rgba(255, 255, 255, 1) 0%,
-    rgba(190, 230, 255, 0.95) 18%,
-    rgba(120, 200, 255, 0.85) 38%,
-    rgba(60, 140, 255, 0.55) 58%,
-    rgba(40, 80, 255, 0.25) 72%,
-    rgba(0, 0, 0, 0) 82%
+    rgba(220, 245, 255, 0.98) 12%,
+    rgba(170, 225, 255, 0.95) 24%,
+    rgba(120, 200, 255, 0.85) 40%,
+    rgba(70, 160, 255, 0.6) 58%,
+    rgba(40, 110, 255, 0.35) 72%,
+    rgba(20, 60, 255, 0.18) 82%,
+    rgba(0, 0, 0, 0) 92%
   );
+  box-shadow:
+    0 0 18px rgba(200, 235, 255, 0.9),
+    0 0 40px rgba(120, 200, 255, 0.75),
+    0 0 80px rgba(80, 160, 255, 0.55),
+    0 0 140px rgba(40, 110, 255, 0.35);
+
   animation: ship-explode-core 720ms cubic-bezier(0.22, 0.9, 0.3, 1) forwards;
 }
 
 .ship-explosion-shockwave {
   position: absolute;
   border-radius: 9999px;
-  border: 3px solid rgba(160, 220, 255, 0.9);
+  border: 3px solid rgba(200, 235, 255, 0.95);
+
+  box-shadow:
+    0 0 14px rgba(200, 235, 255, 0.9),
+    0 0 32px rgba(120, 200, 255, 0.75),
+    0 0 70px rgba(80, 160, 255, 0.55);
+
   animation: ship-explode-shockwave 900ms cubic-bezier(0.22, 0.9, 0.3, 1)
     forwards;
 }
@@ -176,6 +186,12 @@ Reusable classes
 .ship-explosion-ring {
   position: absolute;
   border-radius: 9999px;
-  border: 2px solid rgba(255, 255, 255, 0.75);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+
+  box-shadow:
+    0 0 12px rgba(220, 245, 255, 0.95),
+    0 0 28px rgba(170, 225, 255, 0.75),
+    0 0 60px rgba(120, 200, 255, 0.55);
+
   animation: ship-explode-ring 1100ms cubic-bezier(0.22, 0.9, 0.3, 1) forwards;
 }

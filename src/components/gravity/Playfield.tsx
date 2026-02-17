@@ -145,7 +145,7 @@ export default function Playfield({
 
       <div className="relative h-full w-full">
         <PointerAim pointer={pointer} bodies={bodies} />
-        <PointerReticle pointer={pointer} size={10} />
+        {/* <PointerReticle pointer={pointer} size={10} /> */}
 
         {!shipDead ? <PlayerShip pointer={pointer} hit={shipHit} /> : null}
 
