@@ -46,6 +46,12 @@ export default function GravityPage() {
           shipHP={sim.shipHp}
           shipMaxHP={sim.shipMaxHp}
           shipInvulnerable={sim.shipInvulnerable}
+          score={sim.score}
+          gameOver={sim.gameOver}
+          onRestart={() => {
+            sim.restartGame();
+            setResetNonce((n) => n + 1);
+          }}
         />
       </div>
     </main>

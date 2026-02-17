@@ -236,6 +236,23 @@ export function useGravitySim({
   const [paused, setPaused] = useState(false);
   const [gravityStrength, setGravityStrength] = useState<number>(1);
 
+  const [score, setScore] = useState(0);
+  const scoreRef = useRef(0);
+
+  type GameStatus = "playing" | "gameover";
+  const [gameStatus, setGameStatus] = useState<GameStatus>("playing");
+  const gameStatusRef = useRef<GameStatus>("playing");
+
+  const scoredDestroyedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+
+  useEffect(() => {
+    gameStatusRef.current = gameStatus;
+  }, [gameStatus]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     setGravityStrength(loadGravityStrength());
@@ -335,11 +352,15 @@ export function useGravitySim({
     bodiesRef.current = next;
     draggingRef.current = null;
     lastRef.current = null;
+
     shipCollisionsRef.current = [];
     setShipCollisions([]);
+
     shipHpRef.current = SHIP_MAX_HP;
     shipInvulnUntilRef.current = 0;
     setShipHp(SHIP_MAX_HP);
+
+    setGameStatus("playing");
 
     if (explosionTimeoutRef.current != null) {
       window.clearTimeout(explosionTimeoutRef.current);
@@ -349,6 +370,13 @@ export function useGravitySim({
 
     setBodies(next);
   }, [makeInitialBody]);
+
+  const restartGame = useCallback(() => {
+    setPaused(false);
+    setScore(0);
+    scoredDestroyedRef.current = new Set();
+    reset();
+  }, [reset]);
 
   const resetRef = useRef(reset);
   useEffect(() => {
@@ -575,6 +603,7 @@ export function useGravitySim({
                 setShipHp(nextHp);
 
                 if (prevHp > 0 && nextHp === 0) {
+                  setGameStatus("gameover");
                   triggerShipExplosion({ x: p.x, y: p.y });
                 }
               }
@@ -590,6 +619,17 @@ export function useGravitySim({
         }
 
         if (hitSet.size) {
+          let newlyDestroyed = 0;
+
+          for (const id of hitSet) {
+            if (!scoredDestroyedRef.current.has(id)) {
+              scoredDestroyedRef.current.add(id);
+              newlyDestroyed++;
+            }
+          }
+
+          if (newlyDestroyed) setScore((s) => s + newlyDestroyed);
+
           next = next.map((b) => {
             if (!hitSet.has(b.id)) return b;
             if (b.destroyed) return b;
@@ -644,6 +684,7 @@ export function useGravitySim({
   ]);
 
   const shipDead = shipHp <= 0;
+  const gameOver = gameStatus === "gameover";
 
   return {
     bodies,
@@ -656,6 +697,7 @@ export function useGravitySim({
     setPaused,
     togglePause,
     reset,
+    restartGame,
 
     addBody,
     removeLastBody,
@@ -681,5 +723,9 @@ export function useGravitySim({
 
     shipDead,
     shipExplosion,
+
+    score,
+    gameStatus,
+    gameOver,
   };
 }
