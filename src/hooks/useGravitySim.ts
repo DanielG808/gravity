@@ -46,6 +46,11 @@ function mag(x: number, y: number) {
   return Math.sqrt(x * x + y * y);
 }
 
+function massToRadius(mass: number) {
+  const m = Math.max(1, mass);
+  return Math.max(4, Math.sqrt(m) * 6);
+}
+
 function randColor() {
   const roll = Math.random();
 
@@ -233,29 +238,30 @@ export function useGravitySim({
   } | null>(null);
 
   const makeInitialBody = useCallback((): Body => {
+    const mass = 5;
     return {
       id: uid(),
       pos: { ...initialPos },
       vel: { ...initialVel },
-      mass: 5,
-      radius: 14,
+      mass,
+      radius: massToRadius(mass),
       color: randColor(),
     };
   }, [initialPos, initialVel]);
 
-  const stableInitialBodies = useMemo<Body[]>(
-    () => [
+  const stableInitialBodies = useMemo<Body[]>(() => {
+    const mass = 5;
+    return [
       {
         id: "seed",
         pos: { ...initialPos },
         vel: { ...initialVel },
-        mass: 5,
-        radius: 14,
+        mass,
+        radius: massToRadius(mass),
         color: "hsl(230 70% 65%)",
       },
-    ],
-    [initialPos, initialVel],
-  );
+    ];
+  }, [initialPos, initialVel]);
 
   const bodiesRef = useRef<Body[]>(stableInitialBodies);
   const [bodies, setBodies] = useState<Body[]>(() => stableInitialBodies);
@@ -294,8 +300,8 @@ export function useGravitySim({
 
   const addBody = useCallback(
     (bounds?: { w: number; h: number }) => {
-      const radius = Math.round(rand(8, 26));
       const mass = Math.round(rand(1, 12));
+      const radius = massToRadius(mass);
 
       const x = bounds
         ? rand(radius, Math.max(radius, bounds.w - radius))
@@ -464,6 +470,12 @@ export function useGravitySim({
 
           return { ...b, pos, vel: v };
         });
+
+        for (let i = 0; i < next.length; i++) {
+          const b = next[i];
+          const r = massToRadius(b.mass);
+          if (b.radius !== r) next[i] = { ...b, radius: r };
+        }
 
         solveCollisions(next);
 
