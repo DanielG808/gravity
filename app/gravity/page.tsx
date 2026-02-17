@@ -41,6 +41,9 @@ export default function GravityPage() {
           onRemoveBody={sim.removeLastBody}
           gravityStrength={sim.gravityStrength}
           onChangeGravityStrength={sim.setGravityStrength}
+          shipHP={sim.shipHp}
+          shipMaxHP={sim.shipMaxHp}
+          shipInvulnerable={sim.shipInvulnerable}
         />
       </div>
     </main>

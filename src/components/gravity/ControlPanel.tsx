@@ -1,7 +1,5 @@
 "use client";
 
-import * as React from "react";
-
 type ControlPanelProps = {
   paused: boolean;
   onTogglePause: () => void;
@@ -11,7 +9,15 @@ type ControlPanelProps = {
 
   gravityStrength: number;
   onChangeGravityStrength: (v: number) => void;
+
+  shipHP: number;
+  shipMaxHP: number;
+  shipInvulnerable?: boolean;
 };
+
+function clamp(v: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, v));
+}
 
 export default function ControlPanel({
   paused,
@@ -21,7 +27,12 @@ export default function ControlPanel({
   onRemoveBody,
   gravityStrength,
   onChangeGravityStrength,
+  shipHP,
+  shipMaxHP,
+  shipInvulnerable = false,
 }: ControlPanelProps) {
+  const pct = shipMaxHP > 0 ? clamp(shipHP / shipMaxHP, 0, 1) : 0;
+
   return (
     <aside className="relative w-[320px] shrink-0 h-full border-l border-white/10 bg-[#07071a]/70 backdrop-blur">
       <div className="absolute inset-0 pointer-events-none [background:radial-gradient(600px_500px_at_40%_20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(600px_500px_at_60%_80%,rgba(59,130,246,0.12),transparent_55%)]" />
@@ -46,6 +57,40 @@ export default function ControlPanel({
             ].join(" ")}
           >
             {paused ? "Paused" : "Running"}
+          </div>
+        </div>
+
+        <div className="h-px bg-white/10" />
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+              Ship HP
+            </div>
+
+            <div
+              className={[
+                "text-xs font-mono text-white/80",
+                shipInvulnerable ? "text-cyan-200/90" : "",
+              ].join(" ")}
+            >
+              {shipHP} / {shipMaxHP}
+            </div>
+          </div>
+
+          <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className={[
+                "h-full transition-[width] duration-150",
+                shipInvulnerable ? "bg-cyan-300/70" : "bg-rose-400/80",
+              ].join(" ")}
+              style={{ width: `${pct * 100}%` }}
+            />
+          </div>
+
+          <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">
+            <span>0</span>
+            <span>{shipMaxHP}</span>
           </div>
         </div>
 

@@ -202,6 +202,13 @@ function solveCollisions(bodies: Body[]) {
 const SHIP_RADIUS = 24;
 const EXPLOSION_DURATION = 420;
 
+const SHIP_MAX_HP = 100;
+const SHIP_INVULN_MS = 450;
+
+function damageFromBody(b: Body) {
+  return clamp(Math.round(b.mass * 2.6), 2, 40);
+}
+
 function sameIds(a: string[], b: string[]) {
   if (a === b) return true;
   if (a.length !== b.length) return false;
@@ -285,6 +292,10 @@ export function useGravitySim({
   const [shipCollisions, setShipCollisions] = useState<string[]>([]);
   const shipCollisionsRef = useRef<string[]>([]);
 
+  const shipHpRef = useRef<number>(SHIP_MAX_HP);
+  const shipInvulnUntilRef = useRef<number>(0);
+  const [shipHp, setShipHp] = useState<number>(SHIP_MAX_HP);
+
   const setPointer = useCallback((p: Pointer) => {
     pointerRef.current = p;
   }, []);
@@ -300,6 +311,9 @@ export function useGravitySim({
     lastRef.current = null;
     shipCollisionsRef.current = [];
     setShipCollisions([]);
+    shipHpRef.current = SHIP_MAX_HP;
+    shipInvulnUntilRef.current = 0;
+    setShipHp(SHIP_MAX_HP);
     setBodies(next);
   }, [makeInitialBody]);
 
@@ -515,7 +529,17 @@ export function useGravitySim({
             const dy = b.pos.y - p.y;
             const rr = b.radius + shipR;
 
-            if (dx * dx + dy * dy <= rr * rr) hitSet.add(b.id);
+            if (dx * dx + dy * dy <= rr * rr) {
+              hitSet.add(b.id);
+
+              if (now >= shipInvulnUntilRef.current && shipHpRef.current > 0) {
+                const dmg = damageFromBody(b);
+                const nextHp = clamp(shipHpRef.current - dmg, 0, SHIP_MAX_HP);
+                shipHpRef.current = nextHp;
+                shipInvulnUntilRef.current = now + SHIP_INVULN_MS;
+                setShipHp(nextHp);
+              }
+            }
           }
         }
 
@@ -607,5 +631,9 @@ export function useGravitySim({
     shipRadius: SHIP_RADIUS,
     shipCollisions,
     shipHit: shipCollisions.length > 0,
+
+    shipHp,
+    shipMaxHp: SHIP_MAX_HP,
+    shipInvulnerable: performance.now() < shipInvulnUntilRef.current,
   };
 }

@@ -100,3 +100,82 @@ body {
     opacity: 0;
   }
 }
+
+/*
+SHIP DESTRUCTION EXPLOSION
+Large white-blue energy burst
+*/
+
+@keyframes ship-explode-core {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 1;
+    filter: blur(0px);
+  }
+  40% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 1;
+    filter: blur(1px);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.6);
+    opacity: 0;
+    filter: blur(3px);
+  }
+}
+
+@keyframes ship-explode-shockwave {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8);
+    opacity: 0;
+  }
+}
+
+@keyframes ship-explode-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(3.4);
+    opacity: 0;
+  }
+}
+
+/*
+Reusable classes
+*/
+
+.ship-explosion-core {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(190, 230, 255, 0.95) 18%,
+    rgba(120, 200, 255, 0.85) 38%,
+    rgba(60, 140, 255, 0.55) 58%,
+    rgba(40, 80, 255, 0.25) 72%,
+    rgba(0, 0, 0, 0) 82%
+  );
+  animation: ship-explode-core 720ms cubic-bezier(0.22, 0.9, 0.3, 1) forwards;
+}
+
+.ship-explosion-shockwave {
+  position: absolute;
+  border-radius: 9999px;
+  border: 3px solid rgba(160, 220, 255, 0.9);
+  animation: ship-explode-shockwave 900ms cubic-bezier(0.22, 0.9, 0.3, 1)
+    forwards;
+}
+
+.ship-explosion-ring {
+  position: absolute;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  animation: ship-explode-ring 1100ms cubic-bezier(0.22, 0.9, 0.3, 1) forwards;
+}
