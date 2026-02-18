@@ -231,6 +231,91 @@ function sameIds(a: string[], b: string[]) {
   return true;
 }
 
+const SPAWN_MAX_BODIES = 28;
+const SPAWN_BASE_INTERVAL_MS = 1700;
+const SPAWN_MIN_INTERVAL_MS = 420;
+const SPAWN_INTERVAL_DECAY_PER_S = 0.985;
+const SPAWN_BASE_MEAN_MASS = 6;
+const SPAWN_MASS_PER_S = 0.085;
+const SPAWN_MASS_JITTER = 0.55;
+const SPAWN_MAX_MASS = 30;
+const SPAWN_TRIES = 60;
+const SPAWN_PADDING = 6;
+const SPAWN_SHIP_SAFE_PAD = 90;
+
+const LEVEL_BASE_GOAL = 12;
+const LEVEL_GOAL_PER_LEVEL = 6;
+const LEVEL_BASE_MAX_ACTIVE = 10;
+const LEVEL_MAX_ACTIVE_PER_LEVEL = 2;
+
+function activeBodiesCount(list: Body[]) {
+  let n = 0;
+  for (let i = 0; i < list.length; i++) if (!list[i].destroyed) n++;
+  return n;
+}
+
+function findSafeSpawnPos(args: {
+  bounds: { w: number; h: number };
+  bodies: Body[];
+  radius: number;
+  ship: { x: number; y: number; active: boolean };
+}) {
+  const { bounds, bodies, radius, ship } = args;
+  const w = bounds.w;
+  const h = bounds.h;
+
+  const minX = radius;
+  const maxX = w - radius;
+  const minY = radius;
+  const maxY = h - radius;
+
+  if (w <= radius * 2 + 2 || h <= radius * 2 + 2) return null;
+
+  const shipSafeR = ship.active
+    ? radius + SHIP_RADIUS + SPAWN_SHIP_SAFE_PAD
+    : 0;
+
+  const okAt = (x: number, y: number) => {
+    if (ship.active) {
+      const dxs = x - ship.x;
+      const dys = y - ship.y;
+      if (dxs * dxs + dys * dys <= shipSafeR * shipSafeR) return false;
+    }
+
+    for (let i = 0; i < bodies.length; i++) {
+      const b = bodies[i];
+      if (b.destroyed) continue;
+      const rr = radius + b.radius + SPAWN_PADDING;
+      const dx = x - b.pos.x;
+      const dy = y - b.pos.y;
+      if (dx * dx + dy * dy <= rr * rr) return false;
+    }
+
+    return true;
+  };
+
+  for (let i = 0; i < SPAWN_TRIES; i++) {
+    const x = rand(minX, Math.max(minX, maxX));
+    const y = rand(minY, Math.max(minY, maxY));
+    if (okAt(x, y)) return { x, y };
+  }
+
+  const cx = (minX + maxX) * 0.5;
+  const cy = (minY + maxY) * 0.5;
+  const ringMax = Math.max(w, h);
+
+  for (let ring = 24; ring <= ringMax; ring += 24) {
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      const x = clamp(cx + Math.cos(a) * ring, minX, maxX);
+      const y = clamp(cy + Math.sin(a) * ring, minY, maxY);
+      if (okAt(x, y)) return { x, y };
+    }
+  }
+
+  return null;
+}
+
 export function useGravitySim({
   initialPos,
   initialVel = { x: 0, y: 0 },
@@ -258,6 +343,15 @@ export function useGravitySim({
 
   const scoredDestroyedRef = useRef<Set<string>>(new Set());
 
+  const [level, setLevel] = useState(1);
+  const levelRef = useRef(1);
+
+  const [levelProgress, setLevelProgress] = useState(0);
+  const levelProgressRef = useRef(0);
+
+  const [levelGoal, setLevelGoal] = useState(LEVEL_BASE_GOAL);
+  const levelGoalRef = useRef(LEVEL_BASE_GOAL);
+
   useEffect(() => {
     scoreRef.current = score;
   }, [score]);
@@ -265,6 +359,18 @@ export function useGravitySim({
   useEffect(() => {
     gameStatusRef.current = gameStatus;
   }, [gameStatus]);
+
+  useEffect(() => {
+    levelRef.current = level;
+  }, [level]);
+
+  useEffect(() => {
+    levelProgressRef.current = levelProgress;
+  }, [levelProgress]);
+
+  useEffect(() => {
+    levelGoalRef.current = levelGoal;
+  }, [levelGoal]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -292,6 +398,30 @@ export function useGravitySim({
     lastT: number;
     releaseVel: Vec2;
   } | null>(null);
+
+  const spawnStartedAtRef = useRef<number>(0);
+  const nextSpawnAtRef = useRef<number>(0);
+
+  const computeSpawnIntervalMs = useCallback((elapsedS: number) => {
+    const interval =
+      SPAWN_BASE_INTERVAL_MS * Math.pow(SPAWN_INTERVAL_DECAY_PER_S, elapsedS);
+    return clamp(interval, SPAWN_MIN_INTERVAL_MS, SPAWN_BASE_INTERVAL_MS);
+  }, []);
+
+  const computeSpawnMass = useCallback((elapsedS: number) => {
+    const mean = SPAWN_BASE_MEAN_MASS + elapsedS * SPAWN_MASS_PER_S;
+    const jittered = mean * rand(1 - SPAWN_MASS_JITTER, 1 + SPAWN_MASS_JITTER);
+    return clamp(Math.round(jittered), 1, SPAWN_MAX_MASS);
+  }, []);
+
+  const computeLevelGoal = useCallback((lvl: number) => {
+    return Math.max(1, LEVEL_BASE_GOAL + (lvl - 1) * LEVEL_GOAL_PER_LEVEL);
+  }, []);
+
+  const computeLevelMaxActiveBodies = useCallback((lvl: number) => {
+    const raw = LEVEL_BASE_MAX_ACTIVE + (lvl - 1) * LEVEL_MAX_ACTIVE_PER_LEVEL;
+    return clamp(raw, 1, SPAWN_MAX_BODIES);
+  }, []);
 
   const makeInitialBody = useCallback((): Body => {
     const mass = 5;
@@ -421,6 +551,58 @@ export function useGravitySim({
     [fireBullet],
   );
 
+  const resetSpawning = useCallback(() => {
+    const now = performance.now();
+    spawnStartedAtRef.current = now;
+    nextSpawnAtRef.current = now + SPAWN_BASE_INTERVAL_MS;
+  }, []);
+
+  const resetLeveling = useCallback(() => {
+    const lvl = 1;
+    const goal = computeLevelGoal(lvl);
+
+    levelRef.current = lvl;
+    setLevel(lvl);
+
+    levelProgressRef.current = 0;
+    setLevelProgress(0);
+
+    levelGoalRef.current = goal;
+    setLevelGoal(goal);
+  }, [computeLevelGoal]);
+
+  const registerDestroyedBodies = useCallback(
+    (count: number) => {
+      if (count <= 0) return;
+
+      let prog = levelProgressRef.current + count;
+      let lvl = levelRef.current;
+      let goal = levelGoalRef.current;
+
+      while (prog >= goal) {
+        prog -= goal;
+        lvl += 1;
+        goal = computeLevelGoal(lvl);
+      }
+
+      if (lvl !== levelRef.current) {
+        levelRef.current = lvl;
+        setLevel(lvl);
+      }
+
+      if (goal !== levelGoalRef.current) {
+        levelGoalRef.current = goal;
+        setLevelGoal(goal);
+      }
+
+      if (prog !== levelProgressRef.current) {
+        levelProgressRef.current = prog;
+        setLevelProgress(prog);
+      }
+    },
+    [computeLevelGoal],
+  );
+
   const reset = useCallback(() => {
     const next = [makeInitialBody()];
     bodiesRef.current = next;
@@ -446,8 +628,11 @@ export function useGravitySim({
     setBullets([]);
     lastFireAtRef.current = 0;
 
+    resetSpawning();
+    resetLeveling();
+
     setBodies(next);
-  }, [makeInitialBody]);
+  }, [makeInitialBody, resetSpawning, resetLeveling]);
 
   const restartGame = useCallback(() => {
     setPaused(false);
@@ -698,6 +883,7 @@ export function useGravitySim({
 
         if (hitSet.size) {
           let scoreDelta = 0;
+          let destroyedNew = 0;
 
           for (const id of hitSet) {
             if (scoredDestroyedRef.current.has(id)) continue;
@@ -706,12 +892,16 @@ export function useGravitySim({
             if (!body) continue;
 
             scoredDestroyedRef.current.add(id);
-
             scoreDelta += Math.round(body.mass * 100);
+            destroyedNew += 1;
           }
 
           if (scoreDelta > 0) {
             setScore((s) => s + scoreDelta);
+          }
+
+          if (destroyedNew > 0) {
+            registerDestroyedBodies(destroyedNew);
           }
 
           next = next.map((b) => {
@@ -734,6 +924,8 @@ export function useGravitySim({
           const bds = boundsRef.current;
           const hitByBullet = new Set<string>();
           const bulletsNext: Bullet[] = [];
+
+          let destroyedByBulletsNew = 0;
 
           for (const bullet of bulletsRef.current) {
             const ttl = bullet.ttl - dt;
@@ -770,6 +962,7 @@ export function useGravitySim({
                 if (!scoredDestroyedRef.current.has(body.id)) {
                   scoredDestroyedRef.current.add(body.id);
                   setScore((s) => s + Math.round(body.mass * 100));
+                  destroyedByBulletsNew += 1;
                 }
 
                 next[i] = {
@@ -788,12 +981,80 @@ export function useGravitySim({
             }
           }
 
+          if (destroyedByBulletsNew > 0) {
+            registerDestroyedBodies(destroyedByBulletsNew);
+          }
+
           if (draggingRef.current && hitByBullet.has(draggingRef.current.id)) {
             draggingRef.current = null;
           }
 
           bulletsRef.current = bulletsNext;
           setBullets(bulletsNext);
+        }
+
+        next = next.filter((b) => {
+          if (!b.destroyed) return true;
+          const at = b.destroyedAt ?? now;
+          return now - at < EXPLOSION_DURATION;
+        });
+
+        if (
+          gameStatusRef.current === "playing" &&
+          shipHpRef.current > 0 &&
+          bounds.w > 0 &&
+          bounds.h > 0
+        ) {
+          const elapsedS = Math.max(
+            0,
+            (now - spawnStartedAtRef.current) / 1000,
+          );
+          let loops = 0;
+
+          const lvl = levelRef.current;
+          const maxActive = computeLevelMaxActiveBodies(lvl);
+
+          while (
+            loops < 4 &&
+            now >= nextSpawnAtRef.current &&
+            activeBodiesCount(next) < maxActive
+          ) {
+            const mass = computeSpawnMass(elapsedS);
+            const radius = massToRadius(mass);
+
+            const ship = {
+              x: p.x,
+              y: p.y,
+              active: p.inside && shipHpRef.current > 0,
+            };
+
+            const pos = findSafeSpawnPos({
+              bounds,
+              bodies: next,
+              radius,
+              ship,
+            });
+
+            if (pos) {
+              const vx = rand(-160, 160);
+              const vy = rand(-160, 160);
+
+              const newBody: Body = {
+                id: uid(),
+                pos,
+                vel: { x: vx, y: vy },
+                mass,
+                radius,
+                color: randColor(),
+              };
+
+              next = [...next, newBody];
+            }
+
+            const interval = computeSpawnIntervalMs(elapsedS);
+            nextSpawnAtRef.current += interval;
+            loops++;
+          }
         }
 
         const active = next.filter((b) => !b.destroyed);
@@ -803,12 +1064,6 @@ export function useGravitySim({
           if (draggingId && active[i].id === draggingId) continue;
           collideWithBounds(active[i], bounds);
         }
-
-        next = next.filter((b) => {
-          if (!b.destroyed) return true;
-          const at = b.destroyedAt ?? now;
-          return now - at < EXPLOSION_DURATION;
-        });
 
         bodiesRef.current = next;
         setBodies(next);
@@ -831,10 +1086,17 @@ export function useGravitySim({
     params.softening,
     gravityStrength,
     triggerShipExplosion,
+    computeSpawnIntervalMs,
+    computeSpawnMass,
+    computeLevelMaxActiveBodies,
+    registerDestroyedBodies,
   ]);
 
   const shipDead = shipHp <= 0;
   const gameOver = gameStatus === "gameover";
+
+  const spawnMaxBodies = SPAWN_MAX_BODIES;
+  const levelMaxActiveBodies = computeLevelMaxActiveBodies(level);
 
   return {
     bodies,
@@ -882,5 +1144,11 @@ export function useGravitySim({
     score,
     gameStatus,
     gameOver,
+
+    spawnMaxBodies,
+    level,
+    levelProgress,
+    levelGoal,
+    levelMaxActiveBodies,
   };
 }

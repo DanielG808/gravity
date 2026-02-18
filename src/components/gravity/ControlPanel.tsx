@@ -17,6 +17,14 @@ type ControlPanelProps = {
   score: number;
   gameOver: boolean;
   onRestart: () => void;
+
+  bodyCount?: number;
+  maxBodies?: number;
+
+  level?: number;
+  levelProgress?: number;
+  levelGoal?: number;
+  levelMaxActiveBodies?: number;
 };
 
 function clamp(v: number, min: number, max: number) {
@@ -38,8 +46,30 @@ export default function ControlPanel({
   score,
   gameOver,
   onRestart,
+
+  bodyCount,
+  maxBodies,
+
+  level,
+  levelProgress,
+  levelGoal,
+  levelMaxActiveBodies,
 }: ControlPanelProps) {
   const pct = shipMaxHP > 0 ? clamp(shipHP / shipMaxHP, 0, 1) : 0;
+
+  const bodiesLabel =
+    typeof bodyCount === "number"
+      ? typeof maxBodies === "number"
+        ? `${bodyCount} / ${maxBodies}`
+        : `${bodyCount}`
+      : "—";
+
+  const lvl = typeof level === "number" ? level : null;
+  const prog = typeof levelProgress === "number" ? levelProgress : null;
+  const goal = typeof levelGoal === "number" ? levelGoal : null;
+
+  const levelPct =
+    prog != null && goal != null && goal > 0 ? clamp(prog / goal, 0, 1) : 0;
 
   return (
     <aside className="relative w-[320px] shrink-0 h-full border-l border-white/10 bg-[#07071a]/70 backdrop-blur">
@@ -84,7 +114,39 @@ export default function ControlPanel({
             <div className="text-xs tracking-[0.25em] uppercase text-white/60">
               Bodies
             </div>
-            <div className="mt-1 text-2xl font-semibold text-white/90">—</div>
+            <div className="mt-1 text-2xl font-semibold text-white/90">
+              {bodiesLabel}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+              Level
+            </div>
+            <div className="text-xs font-mono text-white/80">
+              {lvl != null ? `Lv ${lvl}` : "—"}
+            </div>
+          </div>
+
+          <div className="mt-2 flex items-center justify-between text-[10px] text-white/45 font-mono">
+            <span>{prog != null ? prog : "—"}</span>
+            <span>{goal != null ? goal : "—"}</span>
+          </div>
+
+          <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className="h-full transition-[width] duration-150 bg-cyan-300/70"
+              style={{ width: `${levelPct * 100}%` }}
+            />
+          </div>
+
+          <div className="mt-2 text-[10px] text-white/45 font-mono">
+            Max active bodies:{" "}
+            {typeof levelMaxActiveBodies === "number"
+              ? levelMaxActiveBodies
+              : "—"}
           </div>
         </div>
 
