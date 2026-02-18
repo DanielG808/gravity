@@ -10,6 +10,8 @@ export type Body = {
   mass: number;
   radius: number;
   color: string;
+  destroyed?: boolean;
+  destroyedAt?: number;
 };
 
 type Pointer = {
@@ -197,6 +199,25 @@ function solveCollisions(bodies: Body[]) {
   }
 }
 
+const SHIP_RADIUS = 24;
+const EXPLOSION_DURATION = 420;
+
+const SHIP_MAX_HP = 100;
+const SHIP_INVULN_MS = 450;
+
+function damageFromBody(b: Body) {
+  return clamp(Math.round(b.mass * 2.6), 2, 40);
+}
+
+function sameIds(a: string[], b: string[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 export function useGravitySim({
   initialPos,
   initialVel = { x: 0, y: 0 },
@@ -213,8 +234,24 @@ export function useGravitySim({
   );
 
   const [paused, setPaused] = useState(false);
-
   const [gravityStrength, setGravityStrength] = useState<number>(1);
+
+  const [score, setScore] = useState(0);
+  const scoreRef = useRef(0);
+
+  type GameStatus = "playing" | "gameover";
+  const [gameStatus, setGameStatus] = useState<GameStatus>("playing");
+  const gameStatusRef = useRef<GameStatus>("playing");
+
+  const scoredDestroyedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+
+  useEffect(() => {
+    gameStatusRef.current = gameStatus;
+  }, [gameStatus]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -269,6 +306,39 @@ export function useGravitySim({
   const rafRef = useRef<number | null>(null);
   const lastRef = useRef<number | null>(null);
 
+  const [shipCollisions, setShipCollisions] = useState<string[]>([]);
+  const shipCollisionsRef = useRef<string[]>([]);
+
+  const shipHpRef = useRef<number>(SHIP_MAX_HP);
+  const shipInvulnUntilRef = useRef<number>(0);
+  const [shipHp, setShipHp] = useState<number>(SHIP_MAX_HP);
+
+  const [shipExplosion, setShipExplosion] = useState<Vec2 | null>(null);
+  const explosionTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (explosionTimeoutRef.current != null) {
+        window.clearTimeout(explosionTimeoutRef.current);
+        explosionTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const triggerShipExplosion = useCallback((pos: Vec2) => {
+    if (explosionTimeoutRef.current != null) {
+      window.clearTimeout(explosionTimeoutRef.current);
+      explosionTimeoutRef.current = null;
+    }
+
+    setShipExplosion(pos);
+
+    explosionTimeoutRef.current = window.setTimeout(() => {
+      setShipExplosion(null);
+      explosionTimeoutRef.current = null;
+    }, EXPLOSION_DURATION);
+  }, []);
+
   const setPointer = useCallback((p: Pointer) => {
     pointerRef.current = p;
   }, []);
@@ -282,8 +352,31 @@ export function useGravitySim({
     bodiesRef.current = next;
     draggingRef.current = null;
     lastRef.current = null;
+
+    shipCollisionsRef.current = [];
+    setShipCollisions([]);
+
+    shipHpRef.current = SHIP_MAX_HP;
+    shipInvulnUntilRef.current = 0;
+    setShipHp(SHIP_MAX_HP);
+
+    setGameStatus("playing");
+
+    if (explosionTimeoutRef.current != null) {
+      window.clearTimeout(explosionTimeoutRef.current);
+      explosionTimeoutRef.current = null;
+    }
+    setShipExplosion(null);
+
     setBodies(next);
   }, [makeInitialBody]);
+
+  const restartGame = useCallback(() => {
+    setPaused(false);
+    setScore(0);
+    scoredDestroyedRef.current = new Set();
+    reset();
+  }, [reset]);
 
   const resetRef = useRef(reset);
   useEffect(() => {
@@ -348,6 +441,7 @@ export function useGravitySim({
 
       const b = bodiesRef.current.find((x) => x.id === id);
       if (!b) return;
+      if (b.destroyed) return;
 
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
@@ -390,6 +484,7 @@ export function useGravitySim({
 
     const next = bodiesRef.current.map((b) => {
       if (b.id !== d.id) return b;
+      if (b.destroyed) return b;
       return { ...b, pos: { x: nx, y: ny }, vel: { x: 0, y: 0 } };
     });
 
@@ -414,6 +509,7 @@ export function useGravitySim({
 
     const next = bodiesRef.current.map((b) => {
       if (b.id !== d.id) return b;
+      if (b.destroyed) return b;
       return { ...b, vel: { x: vx, y: vy } };
     });
 
@@ -432,8 +528,10 @@ export function useGravitySim({
         const p = pointerRef.current;
         const bounds = boundsRef.current;
         const draggingId = draggingRef.current?.id ?? null;
+        const now = performance.now();
 
-        const next = bodiesRef.current.map((b) => {
+        let next = bodiesRef.current.map((b) => {
+          if (b.destroyed) return b;
           if (draggingId && b.id === draggingId) return b;
 
           const v = { ...b.vel };
@@ -473,16 +571,100 @@ export function useGravitySim({
 
         for (let i = 0; i < next.length; i++) {
           const b = next[i];
+          if (b.destroyed) continue;
           const r = massToRadius(b.mass);
           if (b.radius !== r) next[i] = { ...b, radius: r };
         }
 
-        solveCollisions(next);
+        const hitSet = new Set<string>();
 
-        for (let i = 0; i < next.length; i++) {
-          if (draggingId && next[i].id === draggingId) continue;
-          collideWithBounds(next[i], bounds);
+        if (p.inside && shipHpRef.current > 0) {
+          const shipR = SHIP_RADIUS;
+
+          for (let i = 0; i < next.length; i++) {
+            const b = next[i];
+            if (b.destroyed) continue;
+            if (draggingId && b.id === draggingId) continue;
+
+            const dx = b.pos.x - p.x;
+            const dy = b.pos.y - p.y;
+            const rr = b.radius + shipR;
+
+            if (dx * dx + dy * dy <= rr * rr) {
+              hitSet.add(b.id);
+
+              if (now >= shipInvulnUntilRef.current && shipHpRef.current > 0) {
+                const prevHp = shipHpRef.current;
+                const dmg = damageFromBody(b);
+                const nextHp = clamp(prevHp - dmg, 0, SHIP_MAX_HP);
+
+                shipHpRef.current = nextHp;
+                shipInvulnUntilRef.current = now + SHIP_INVULN_MS;
+                setShipHp(nextHp);
+
+                if (prevHp > 0 && nextHp === 0) {
+                  setGameStatus("gameover");
+                  triggerShipExplosion({ x: p.x, y: p.y });
+                }
+              }
+            }
+          }
         }
+
+        const hitIds = hitSet.size ? Array.from(hitSet) : [];
+
+        if (!sameIds(shipCollisionsRef.current, hitIds)) {
+          shipCollisionsRef.current = hitIds;
+          setShipCollisions(hitIds);
+        }
+
+        if (hitSet.size) {
+          let scoreDelta = 0;
+
+          for (const id of hitSet) {
+            if (scoredDestroyedRef.current.has(id)) continue;
+
+            const body = next.find((b) => b.id === id);
+            if (!body) continue;
+
+            scoredDestroyedRef.current.add(id);
+
+            scoreDelta += Math.round(body.mass * 100);
+          }
+
+          if (scoreDelta > 0) {
+            setScore((s) => s + scoreDelta);
+          }
+
+          next = next.map((b) => {
+            if (!hitSet.has(b.id)) return b;
+            if (b.destroyed) return b;
+            return {
+              ...b,
+              destroyed: true,
+              destroyedAt: now,
+              vel: { x: 0, y: 0 },
+            };
+          });
+
+          if (draggingRef.current && hitSet.has(draggingRef.current.id)) {
+            draggingRef.current = null;
+          }
+        }
+
+        const active = next.filter((b) => !b.destroyed);
+        solveCollisions(active);
+
+        for (let i = 0; i < active.length; i++) {
+          if (draggingId && active[i].id === draggingId) continue;
+          collideWithBounds(active[i], bounds);
+        }
+
+        next = next.filter((b) => {
+          if (!b.destroyed) return true;
+          const at = b.destroyedAt ?? now;
+          return now - at < EXPLOSION_DURATION;
+        });
 
         bodiesRef.current = next;
         setBodies(next);
@@ -504,7 +686,11 @@ export function useGravitySim({
     params.maxSpeed,
     params.softening,
     gravityStrength,
+    triggerShipExplosion,
   ]);
+
+  const shipDead = shipHp <= 0;
+  const gameOver = gameStatus === "gameover";
 
   return {
     bodies,
@@ -517,6 +703,7 @@ export function useGravitySim({
     setPaused,
     togglePause,
     reset,
+    restartGame,
 
     addBody,
     removeLastBody,
@@ -530,5 +717,21 @@ export function useGravitySim({
     onPlayfieldPointerMove,
     onPlayfieldPointerUp,
     draggingId: draggingRef.current?.id ?? null,
+
+    shipRadius: SHIP_RADIUS,
+    shipCollisions,
+    shipHit: !shipDead && shipCollisions.length > 0,
+
+    shipHp,
+    shipMaxHp: SHIP_MAX_HP,
+    shipInvulnerable:
+      !shipDead && performance.now() < shipInvulnUntilRef.current,
+
+    shipDead,
+    shipExplosion,
+
+    score,
+    gameStatus,
+    gameOver,
   };
 }

@@ -22,11 +22,19 @@ export default function GravityPage() {
           paused={sim.paused}
           resetNonce={resetNonce}
           bodies={sim.bodies}
+          shipHit={sim.shipHit}
+          shipDead={sim.shipDead}
+          shipExplosion={sim.shipExplosion}
           onBoundsChange={sim.setBounds}
           onPointerChange={sim.setPointer}
           onBodyPointerDown={sim.onBodyPointerDown}
           onPlayfieldPointerMove={sim.onPlayfieldPointerMove}
           onPlayfieldPointerUp={sim.onPlayfieldPointerUp}
+          gameOver={sim.gameOver}
+          onRestart={() => {
+            sim.restartGame();
+            setResetNonce((n) => n + 1);
+          }}
         />
 
         <ControlPanel
@@ -40,6 +48,15 @@ export default function GravityPage() {
           onRemoveBody={sim.removeLastBody}
           gravityStrength={sim.gravityStrength}
           onChangeGravityStrength={sim.setGravityStrength}
+          shipHP={sim.shipHp}
+          shipMaxHP={sim.shipMaxHp}
+          shipInvulnerable={sim.shipInvulnerable}
+          score={sim.score}
+          gameOver={sim.gameOver}
+          onRestart={() => {
+            sim.restartGame();
+            setResetNonce((n) => n + 1);
+          }}
         />
       </div>
     </main>

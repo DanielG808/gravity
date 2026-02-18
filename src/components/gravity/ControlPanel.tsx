@@ -1,7 +1,5 @@
 "use client";
 
-import * as React from "react";
-
 type ControlPanelProps = {
   paused: boolean;
   onTogglePause: () => void;
@@ -11,7 +9,19 @@ type ControlPanelProps = {
 
   gravityStrength: number;
   onChangeGravityStrength: (v: number) => void;
+
+  shipHP: number;
+  shipMaxHP: number;
+  shipInvulnerable?: boolean;
+
+  score: number;
+  gameOver: boolean;
+  onRestart: () => void;
 };
+
+function clamp(v: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, v));
+}
 
 export default function ControlPanel({
   paused,
@@ -21,7 +31,16 @@ export default function ControlPanel({
   onRemoveBody,
   gravityStrength,
   onChangeGravityStrength,
+  shipHP,
+  shipMaxHP,
+  shipInvulnerable = false,
+
+  score,
+  gameOver,
+  onRestart,
 }: ControlPanelProps) {
+  const pct = shipMaxHP > 0 ? clamp(shipHP / shipMaxHP, 0, 1) : 0;
+
   return (
     <aside className="relative w-[320px] shrink-0 h-full border-l border-white/10 bg-[#07071a]/70 backdrop-blur">
       <div className="absolute inset-0 pointer-events-none [background:radial-gradient(600px_500px_at_40%_20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(600px_500px_at_60%_80%,rgba(59,130,246,0.12),transparent_55%)]" />
@@ -40,12 +59,66 @@ export default function ControlPanel({
           <div
             className={[
               "text-xs px-2 py-1 rounded-md border",
-              paused
-                ? "border-amber-300/30 text-amber-200/90 bg-amber-400/10"
-                : "border-emerald-300/25 text-emerald-200/90 bg-emerald-400/10",
+              gameOver
+                ? "border-rose-300/30 text-rose-200/90 bg-rose-400/10"
+                : paused
+                  ? "border-amber-300/30 text-amber-200/90 bg-amber-400/10"
+                  : "border-emerald-300/25 text-emerald-200/90 bg-emerald-400/10",
             ].join(" ")}
           >
-            {paused ? "Paused" : "Running"}
+            {gameOver ? "Game Over" : paused ? "Paused" : "Running"}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+              Score
+            </div>
+            <div className="mt-1 text-2xl font-semibold text-white/90">
+              {score}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+              Bodies
+            </div>
+            <div className="mt-1 text-2xl font-semibold text-white/90">—</div>
+          </div>
+        </div>
+
+        <div className="h-px bg-white/10" />
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+              Ship HP
+            </div>
+
+            <div
+              className={[
+                "text-xs font-mono text-white/80",
+                shipInvulnerable ? "text-cyan-200/90" : "",
+              ].join(" ")}
+            >
+              {shipHP} / {shipMaxHP}
+            </div>
+          </div>
+
+          <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className={[
+                "h-full transition-[width] duration-150",
+                shipInvulnerable ? "bg-cyan-300/70" : "bg-rose-400/80",
+              ].join(" ")}
+              style={{ width: `${pct * 100}%` }}
+            />
+          </div>
+
+          <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">
+            <span>0</span>
+            <span>{shipMaxHP}</span>
           </div>
         </div>
 
@@ -55,11 +128,14 @@ export default function ControlPanel({
           <button
             type="button"
             onClick={onTogglePause}
+            disabled={gameOver}
             className={[
               "w-full rounded-lg px-3 py-2 text-sm font-medium border transition",
-              paused
-                ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15"
-                : "border-amber-300/25 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15",
+              gameOver
+                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                : paused
+                  ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15"
+                  : "border-amber-300/25 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15",
             ].join(" ")}
           >
             {paused ? "Resume" : "Pause"}
@@ -68,9 +144,23 @@ export default function ControlPanel({
           <button
             type="button"
             onClick={onReset}
-            className="w-full rounded-lg px-3 py-2 text-sm font-medium border border-white/15 bg-white/5 text-white/90 hover:bg-white/10 transition"
+            disabled={gameOver}
+            className={[
+              "w-full rounded-lg px-3 py-2 text-sm font-medium border transition",
+              gameOver
+                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                : "border-white/15 bg-white/5 text-white/90 hover:bg-white/10",
+            ].join(" ")}
           >
             Reset
+          </button>
+
+          <button
+            type="button"
+            onClick={onRestart}
+            className="w-full rounded-lg px-3 py-2 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
+          >
+            Restart
           </button>
         </div>
 
@@ -80,7 +170,13 @@ export default function ControlPanel({
           <button
             type="button"
             onClick={onAddBody}
-            className="w-full rounded-lg px-3 py-2 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
+            disabled={gameOver}
+            className={[
+              "w-full rounded-lg px-3 py-2 text-sm font-medium border transition",
+              gameOver
+                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                : "border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15",
+            ].join(" ")}
           >
             Add Body
           </button>
@@ -88,7 +184,13 @@ export default function ControlPanel({
           <button
             type="button"
             onClick={onRemoveBody}
-            className="w-full rounded-lg px-3 py-2 text-sm font-medium border border-rose-300/25 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15 transition"
+            disabled={gameOver}
+            className={[
+              "w-full rounded-lg px-3 py-2 text-sm font-medium border transition",
+              gameOver
+                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
+                : "border-rose-300/25 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15",
+            ].join(" ")}
           >
             Remove Body
           </button>
@@ -113,7 +215,11 @@ export default function ControlPanel({
             step={0.01}
             value={gravityStrength}
             onChange={(e) => onChangeGravityStrength(Number(e.target.value))}
-            className="mt-3 w-full accent-white"
+            disabled={gameOver}
+            className={[
+              "mt-3 w-full accent-white",
+              gameOver ? "opacity-40" : "",
+            ].join(" ")}
           />
 
           <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">

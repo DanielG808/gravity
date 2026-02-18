@@ -11,6 +11,9 @@ type PlayfieldProps = {
   paused: boolean;
   resetNonce: number;
   bodies: Body[];
+  shipHit: boolean;
+  shipDead: boolean;
+  shipExplosion: { x: number; y: number } | null;
   onBoundsChange: (b: { w: number; h: number }) => void;
   onPointerChange: (p: { x: number; y: number; inside: boolean }) => void;
 
@@ -20,6 +23,9 @@ type PlayfieldProps = {
   ) => (e: React.PointerEvent) => void;
   onPlayfieldPointerMove: (at: { x: number; y: number }) => void;
   onPlayfieldPointerUp: () => void;
+
+  gameOver: boolean;
+  onRestart: () => void;
 };
 
 function clamp(v: number, min: number, max: number) {
@@ -42,11 +48,17 @@ export default function Playfield({
   paused,
   resetNonce,
   bodies,
+  shipHit,
+  shipDead,
+  shipExplosion,
   onBoundsChange,
   onPointerChange,
   onBodyPointerDown,
   onPlayfieldPointerMove,
   onPlayfieldPointerUp,
+
+  gameOver,
+  onRestart,
 }: PlayfieldProps) {
   const ref = React.useRef<HTMLElement | null>(null);
   const boundsRef = React.useRef<{ w: number; h: number }>({ w: 0, h: 0 });
@@ -58,6 +70,34 @@ export default function Playfield({
     ny: 0,
     inside: false,
   });
+
+  const [showGameOver, setShowGameOver] = React.useState(false);
+  const gameOverTimeoutRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (gameOverTimeoutRef.current != null) {
+      window.clearTimeout(gameOverTimeoutRef.current);
+      gameOverTimeoutRef.current = null;
+    }
+
+    if (!gameOver) {
+      setShowGameOver(false);
+      return;
+    }
+
+    setShowGameOver(false);
+    gameOverTimeoutRef.current = window.setTimeout(() => {
+      setShowGameOver(true);
+      gameOverTimeoutRef.current = null;
+    }, 1000);
+
+    return () => {
+      if (gameOverTimeoutRef.current != null) {
+        window.clearTimeout(gameOverTimeoutRef.current);
+        gameOverTimeoutRef.current = null;
+      }
+    };
+  }, [gameOver]);
 
   const measure = React.useCallback(() => {
     const el = ref.current;
@@ -109,14 +149,19 @@ export default function Playfield({
   return (
     <section
       ref={ref}
-      className="relative flex-1 h-full overflow-hidden bg-[#050510] touch-none cursor-none"
+      className={[
+        "relative flex-1 h-full overflow-hidden bg-[#050510] touch-none",
+        gameOver ? "cursor-auto" : "cursor-none",
+      ].join(" ")}
       onPointerMove={(e) => {
+        if (gameOver) return;
         const p = toLocal(e);
         if (!p) return;
         applyPointer({ x: p.x, y: p.y, inside: true });
         onPlayfieldPointerMove({ x: p.x, y: p.y });
       }}
       onPointerEnter={(e) => {
+        if (gameOver) return;
         const p = toLocal(e);
         if (!p) return;
         applyPointer({ x: p.x, y: p.y, inside: true });
@@ -125,9 +170,11 @@ export default function Playfield({
         applyPointer({ x: 0, y: 0, inside: false });
       }}
       onPointerUp={() => {
+        if (gameOver) return;
         onPlayfieldPointerUp();
       }}
       onPointerCancel={() => {
+        if (gameOver) return;
         onPlayfieldPointerUp();
       }}
     >
@@ -139,29 +186,138 @@ export default function Playfield({
 
       <div className="relative h-full w-full">
         <PointerAim pointer={pointer} bodies={bodies} />
-        <PointerReticle pointer={pointer} size={10} />
-        <PlayerShip pointer={pointer} />
+        {/* <PointerReticle pointer={pointer} size={10} /> */}
 
-        {bodies.map((b) => (
+        {!shipDead ? <PlayerShip pointer={pointer} hit={shipHit} /> : null}
+
+        {shipExplosion ? (
           <div
-            key={b.id}
-            className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
-            onPointerDown={(e) => {
-              const p = toLocal(e);
-              if (!p) return;
-              applyPointer({ x: p.x, y: p.y, inside: true });
-              onBodyPointerDown(b.id, { x: p.x, y: p.y })(e);
-            }}
+            className="absolute pointer-events-none ship-explosion"
             style={{
-              width: b.radius * 2,
-              height: b.radius * 2,
-              transform: `translate(${b.pos.x - b.radius}px, ${b.pos.y - b.radius}px)`,
-              backgroundColor: b.color,
-              boxShadow: `0 0 ${Math.max(10, b.radius * 1.5)}px ${b.color}`,
+              transform: `translate(${shipExplosion.x}px, ${shipExplosion.y}px)`,
               opacity: paused ? 0.9 : 1,
             }}
-          />
-        ))}
+          >
+            <div
+              className="absolute ship-explosion-core"
+              style={{
+                width: 24 * 6,
+                height: 24 * 6,
+                transform: "translate(-50%, -50%)",
+                background:
+                  "radial-gradient(circle, rgba(255,235,170,0.98), rgba(255,110,60,0.72), rgba(255,40,0,0.0) 70%)",
+                animation: "explode 420ms ease-out forwards",
+              }}
+            />
+            <div
+              className="absolute ship-explosion-ring"
+              style={{
+                width: 24 * 7,
+                height: 24 * 7,
+                transform: "translate(-50%, -50%)",
+                borderColor: "rgba(255,210,140,0.85)",
+                borderWidth: 2,
+                borderStyle: "solid",
+                borderRadius: 9999,
+                animation: "shockwave 420ms ease-out forwards",
+              }}
+            />
+          </div>
+        ) : null}
+
+        {bodies.map((b) => {
+          const exploding = Boolean(b.destroyed);
+
+          if (exploding) {
+            return (
+              <div
+                key={b.id}
+                className="absolute pointer-events-none"
+                style={{
+                  transform: `translate(${b.pos.x}px, ${b.pos.y}px)`,
+                  opacity: paused ? 0.9 : 1,
+                }}
+              >
+                <div
+                  className="absolute rounded-full"
+                  style={{
+                    width: b.radius * 4,
+                    height: b.radius * 4,
+                    transform: "translate(-50%, -50%)",
+                    background:
+                      "radial-gradient(circle, rgba(255,220,140,0.95), rgba(255,90,40,0.65), rgba(255,40,0,0.0) 70%)",
+                    animation: "explode 420ms ease-out forwards",
+                  }}
+                />
+                <div
+                  className="absolute rounded-full border"
+                  style={{
+                    width: b.radius * 5,
+                    height: b.radius * 5,
+                    transform: "translate(-50%, -50%)",
+                    borderColor: "rgba(255,200,120,0.8)",
+                    borderWidth: 2,
+                    animation: "shockwave 420ms ease-out forwards",
+                  }}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={b.id}
+              className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => {
+                if (gameOver) return;
+                const p = toLocal(e);
+                if (!p) return;
+                applyPointer({ x: p.x, y: p.y, inside: true });
+                onBodyPointerDown(b.id, { x: p.x, y: p.y })(e);
+              }}
+              style={{
+                width: b.radius * 2,
+                height: b.radius * 2,
+                transform: `translate(${b.pos.x - b.radius}px, ${b.pos.y - b.radius}px)`,
+                backgroundColor: b.color,
+                boxShadow: `0 0 ${Math.max(10, b.radius * 1.5)}px ${b.color}`,
+                opacity: paused ? 0.9 : 1,
+              }}
+            />
+          );
+        })}
+
+        {gameOver ? (
+          <div
+            className={[
+              "absolute inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm",
+              "transition-opacity duration-1000 ease-out",
+              showGameOver
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none",
+            ].join(" ")}
+          >
+            <div className="text-center px-6">
+              <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+                Status
+              </div>
+              <div className="mt-2 text-4xl font-semibold text-white/95">
+                Game Over
+              </div>
+              <div className="mt-3 text-sm text-white/70">
+                Your ship has been destroyed.
+              </div>
+
+              <button
+                type="button"
+                onClick={onRestart}
+                className="mt-6 inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
+              >
+                Restart
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
