@@ -341,6 +341,11 @@ export function useGravitySim({
   const [gameStatus, setGameStatus] = useState<GameStatus>("playing");
   const gameStatusRef = useRef<GameStatus>("playing");
 
+  const setGameStatusSafe = useCallback((s: GameStatus) => {
+    gameStatusRef.current = s;
+    setGameStatus(s);
+  }, []);
+
   const scoredDestroyedRef = useRef<Set<string>>(new Set());
 
   const [level, setLevel] = useState(1);
@@ -351,6 +356,9 @@ export function useGravitySim({
 
   const [levelGoal, setLevelGoal] = useState(LEVEL_BASE_GOAL);
   const levelGoalRef = useRef(LEVEL_BASE_GOAL);
+
+  const [ready, setReady] = useState(true);
+  const readyRef = useRef(true);
 
   useEffect(() => {
     scoreRef.current = score;
@@ -371,6 +379,10 @@ export function useGravitySim({
   useEffect(() => {
     levelGoalRef.current = levelGoal;
   }, [levelGoal]);
+
+  useEffect(() => {
+    readyRef.current = ready;
+  }, [ready]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -512,6 +524,7 @@ export function useGravitySim({
   }, []);
 
   const fireBullet = useCallback(() => {
+    if (readyRef.current) return;
     if (gameStatusRef.current !== "playing") return;
     if (shipHpRef.current <= 0) return;
 
@@ -603,6 +616,17 @@ export function useGravitySim({
     [computeLevelGoal],
   );
 
+  const startGame = useCallback(() => {
+    if (!readyRef.current) return;
+    readyRef.current = false;
+    setReady(false);
+
+    setGameStatusSafe("playing");
+    setPaused(false);
+
+    resetSpawning();
+  }, [resetSpawning, setGameStatusSafe]);
+
   const reset = useCallback(() => {
     const next = [makeInitialBody()];
     bodiesRef.current = next;
@@ -616,7 +640,7 @@ export function useGravitySim({
     shipInvulnUntilRef.current = 0;
     setShipHp(SHIP_MAX_HP);
 
-    setGameStatus("playing");
+    setGameStatusSafe("playing");
 
     if (explosionTimeoutRef.current != null) {
       window.clearTimeout(explosionTimeoutRef.current);
@@ -632,7 +656,7 @@ export function useGravitySim({
     resetLeveling();
 
     setBodies(next);
-  }, [makeInitialBody, resetSpawning, resetLeveling]);
+  }, [makeInitialBody, resetSpawning, resetLeveling, setGameStatusSafe]);
 
   const restartGame = useCallback(() => {
     setPaused(false);
@@ -866,7 +890,7 @@ export function useGravitySim({
                 setShipHp(nextHp);
 
                 if (prevHp > 0 && nextHp === 0) {
-                  setGameStatus("gameover");
+                  setGameStatusSafe("gameover");
                   triggerShipExplosion({ x: p.x, y: p.y });
                 }
               }
@@ -1000,6 +1024,7 @@ export function useGravitySim({
         });
 
         if (
+          !readyRef.current &&
           gameStatusRef.current === "playing" &&
           shipHpRef.current > 0 &&
           bounds.w > 0 &&
@@ -1090,6 +1115,7 @@ export function useGravitySim({
     computeSpawnMass,
     computeLevelMaxActiveBodies,
     registerDestroyedBodies,
+    setGameStatusSafe,
   ]);
 
   const shipDead = shipHp <= 0;
@@ -1150,5 +1176,8 @@ export function useGravitySim({
     levelProgress,
     levelGoal,
     levelMaxActiveBodies,
+
+    ready,
+    startGame,
   };
 }
