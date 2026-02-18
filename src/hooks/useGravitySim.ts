@@ -14,7 +14,7 @@ export type Body = {
   destroyedAt?: number;
 };
 
-export type Bullet = {
+export type TBullet = {
   id: string;
   pos: Vec2;
   vel: Vec2;
@@ -397,8 +397,8 @@ export function useGravitySim({
   const pointerRef = useRef<Pointer>({ x: 0, y: 0, inside: false });
   const boundsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
 
-  const bulletsRef = useRef<Bullet[]>([]);
-  const [bullets, setBullets] = useState<Bullet[]>([]);
+  const bulletsRef = useRef<TBullet[]>([]);
+  const [bullets, setBullets] = useState<TBullet[]>([]);
   const lastFireAtRef = useRef<number>(0);
   const aimDirRef = useRef<Vec2>({ x: 0, y: -1 });
   const lastPointerPosRef = useRef<Vec2 | null>(null);
@@ -542,7 +542,7 @@ export function useGravitySim({
     const spawnX = p.x;
     const spawnY = p.y + ny * (SHIP_RADIUS + BULLET_RADIUS + 2);
 
-    const bullet: Bullet = {
+    const bullet: TBullet = {
       id: uid(),
       pos: { x: spawnX, y: spawnY },
       vel: { x: nx * BULLET_SPEED, y: ny * BULLET_SPEED },
@@ -947,7 +947,7 @@ export function useGravitySim({
         if (bulletsRef.current.length) {
           const bds = boundsRef.current;
           const hitByBullet = new Set<string>();
-          const bulletsNext: Bullet[] = [];
+          const bulletsNext: TBullet[] = [];
 
           let destroyedByBulletsNew = 0;
 

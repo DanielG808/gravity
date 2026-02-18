@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Body, Bullet } from "@/src/hooks/useGravitySim";
+import type { Body, TBullet } from "@/src/hooks/useGravitySim";
 import type { PlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import PointerAim from "@/src/components/gravity/PointerAim";
 import PlayerShip from "./PlayerShip";
@@ -9,12 +9,13 @@ import GameOverScreen from "./GameOverScreen";
 import StartScreen from "./StartScreen";
 import Orb from "./Orb";
 import PlayerShipFX from "./PlayerShipFX";
+import Bullet from "./Bullet";
 
 type PlayfieldProps = {
   paused: boolean;
   resetNonce: number;
   bodies: Body[];
-  bullets: Bullet[];
+  bullets: TBullet[];
 
   shipHit: boolean;
   shipDead: boolean;
@@ -230,31 +231,9 @@ export default function Playfield({
       <div className="relative h-full w-full">
         <PointerAim pointer={pointer} bodies={bodies} />
 
-        {bullets.map((b) => {
-          const ang = Math.atan2(b.vel.y, b.vel.x) * (180 / Math.PI);
-          return (
-            <div
-              key={b.id}
-              className="absolute pointer-events-none"
-              style={{
-                transform: `translate(${b.pos.x}px, ${b.pos.y}px) rotate(${ang}deg)`,
-                opacity: paused ? 0.9 : 1,
-              }}
-            >
-              <div
-                className="absolute rounded-full"
-                style={{
-                  width: 18,
-                  height: 3,
-                  transform: "translate(-50%, -50%)",
-                  background:
-                    "linear-gradient(90deg, rgba(255,255,255,0.95), rgba(34,211,238,0.95), rgba(34,211,238,0.0))",
-                  filter: "drop-shadow(0 0 10px rgba(34,211,238,0.65))",
-                }}
-              />
-            </div>
-          );
-        })}
+        {bullets.map((b) => (
+          <Bullet key={b.id} bullet={b} paused={paused} />
+        ))}
 
         <PlayerShipFX
           pointer={pointer}
