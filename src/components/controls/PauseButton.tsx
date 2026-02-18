@@ -1,3 +1,5 @@
+import Button from "../ui/Button";
+
 type PauseButtonProps = {
   paused: boolean;
   gameOver: boolean;
@@ -11,8 +13,7 @@ export default function PauseButton({
 }: PauseButtonProps) {
   return (
     <div className="flex flex-col gap-2">
-      <button
-        type="button"
+      <Button
         onClick={onTogglePause}
         disabled={gameOver}
         className={[
@@ -25,7 +26,7 @@ export default function PauseButton({
         ].join(" ")}
       >
         {paused ? "Resume" : "Pause"}
-      </button>
+      </Button>
     </div>
   );
 }
