@@ -1,5 +1,9 @@
 "use client";
 
+import ControlPanelDivider from "../controls/ControlPanelDivider";
+import GravityMeter from "../controls/GravityMeter";
+import CopyrightStatement from "../layout/CopyrightStatement";
+
 type ControlPanelProps = {
   paused: boolean;
   onTogglePause: () => void;
@@ -158,7 +162,7 @@ export default function ControlPanel({
           </div>
         </div>
 
-        <div className="h-px bg-white/10" />
+        <ControlPanelDivider />
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
           <div className="flex items-center justify-between">
@@ -192,7 +196,7 @@ export default function ControlPanel({
           </div>
         </div>
 
-        <div className="h-px bg-white/10" />
+        <ControlPanelDivider />
 
         <div className="flex flex-col gap-2">
           <button
@@ -212,38 +216,16 @@ export default function ControlPanel({
           </button>
         </div>
 
-        <div className="h-px bg-white/10" />
+        <ControlPanelDivider />
 
-        <div className="h-px bg-white/10" />
+        <GravityMeter
+          gravityStrength={gravityStrength}
+          gravityPct={gravityPct}
+          gravityMin={gravityMin}
+          gravityMax={gravityMax}
+        />
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Gravity Strength
-            </div>
-            <div className="text-xs font-mono text-white/80">
-              {gravityStrength.toFixed(2)}x
-            </div>
-          </div>
-
-          <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full transition-[width] duration-300 bg-cyan-300/70"
-              style={{ width: `${gravityPct * 100}%` }}
-            />
-          </div>
-
-          <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">
-            <span>{gravityMin.toFixed(2)}</span>
-            <span>{gravityMax.toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="text-xs text-white/70 leading-relaxed">
-            &copy;{new Date().getFullYear()} Gravity Labs. All rights reserved.
-          </div>
-        </div>
+        <CopyrightStatement />
       </div>
     </aside>
   );
