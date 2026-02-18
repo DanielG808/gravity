@@ -22,6 +22,7 @@ export default function GravityPage() {
           paused={sim.paused}
           resetNonce={resetNonce}
           bodies={sim.bodies}
+          bullets={sim.bullets}
           shipHit={sim.shipHit}
           shipDead={sim.shipDead}
           shipExplosion={sim.shipExplosion}
@@ -30,6 +31,7 @@ export default function GravityPage() {
           onBodyPointerDown={sim.onBodyPointerDown}
           onPlayfieldPointerMove={sim.onPlayfieldPointerMove}
           onPlayfieldPointerUp={sim.onPlayfieldPointerUp}
+          onPlayfieldPointerDown={sim.onPlayfieldPointerDown}
           gameOver={sim.gameOver}
           onRestart={() => {
             sim.restartGame();

@@ -14,6 +14,14 @@ export type Body = {
   destroyedAt?: number;
 };
 
+export type Bullet = {
+  id: string;
+  pos: Vec2;
+  vel: Vec2;
+  radius: number;
+  ttl: number;
+};
+
 type Pointer = {
   x: number;
   y: number;
@@ -205,6 +213,11 @@ const EXPLOSION_DURATION = 420;
 const SHIP_MAX_HP = 100;
 const SHIP_INVULN_MS = 450;
 
+const BULLET_SPEED = 1800;
+const BULLET_RADIUS = 4;
+const BULLET_TTL_S = 1.25;
+const FIRE_COOLDOWN_MS = 110;
+
 function damageFromBody(b: Body) {
   return clamp(Math.round(b.mass * 2.6), 2, 40);
 }
@@ -265,6 +278,12 @@ export function useGravitySim({
 
   const pointerRef = useRef<Pointer>({ x: 0, y: 0, inside: false });
   const boundsRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+
+  const bulletsRef = useRef<Bullet[]>([]);
+  const [bullets, setBullets] = useState<Bullet[]>([]);
+  const lastFireAtRef = useRef<number>(0);
+  const aimDirRef = useRef<Vec2>({ x: 0, y: -1 });
+  const lastPointerPosRef = useRef<Vec2 | null>(null);
 
   const draggingRef = useRef<{
     id: string;
@@ -341,11 +360,66 @@ export function useGravitySim({
 
   const setPointer = useCallback((p: Pointer) => {
     pointerRef.current = p;
+
+    if (p.inside) {
+      const prev = lastPointerPosRef.current;
+      if (prev) {
+        const dx = p.x - prev.x;
+        const dy = p.y - prev.y;
+        const d = mag(dx, dy);
+        if (d > 0.0001) {
+          aimDirRef.current = { x: dx / d, y: dy / d };
+        }
+      }
+      lastPointerPosRef.current = { x: p.x, y: p.y };
+    } else {
+      lastPointerPosRef.current = null;
+    }
   }, []);
 
   const setBounds = useCallback((b: { w: number; h: number }) => {
     boundsRef.current = b;
   }, []);
+
+  const fireBullet = useCallback(() => {
+    if (gameStatusRef.current !== "playing") return;
+    if (shipHpRef.current <= 0) return;
+
+    const now = performance.now();
+    if (now - lastFireAtRef.current < FIRE_COOLDOWN_MS) return;
+
+    const p = pointerRef.current;
+    if (!p.inside) return;
+
+    lastFireAtRef.current = now;
+
+    const nx = 0;
+    const ny = -1;
+
+    const spawnX = p.x;
+    const spawnY = p.y + ny * (SHIP_RADIUS + BULLET_RADIUS + 2);
+
+    const bullet: Bullet = {
+      id: uid(),
+      pos: { x: spawnX, y: spawnY },
+      vel: { x: nx * BULLET_SPEED, y: ny * BULLET_SPEED },
+      radius: BULLET_RADIUS,
+      ttl: BULLET_TTL_S,
+    };
+
+    const next = [...bulletsRef.current, bullet];
+    bulletsRef.current = next;
+    setBullets(next);
+  }, []);
+
+  const onPlayfieldPointerDown = useCallback(
+    (at: Vec2) => (e: React.PointerEvent) => {
+      e.preventDefault();
+      pointerRef.current = { x: at.x, y: at.y, inside: true };
+      fireBullet();
+    },
+    [fireBullet],
+  );
 
   const reset = useCallback(() => {
     const next = [makeInitialBody()];
@@ -367,6 +441,10 @@ export function useGravitySim({
       explosionTimeoutRef.current = null;
     }
     setShipExplosion(null);
+
+    bulletsRef.current = [];
+    setBullets([]);
+    lastFireAtRef.current = 0;
 
     setBodies(next);
   }, [makeInitialBody]);
@@ -652,6 +730,72 @@ export function useGravitySim({
           }
         }
 
+        if (bulletsRef.current.length) {
+          const bds = boundsRef.current;
+          const hitByBullet = new Set<string>();
+          const bulletsNext: Bullet[] = [];
+
+          for (const bullet of bulletsRef.current) {
+            const ttl = bullet.ttl - dt;
+            if (ttl <= 0) continue;
+
+            const pos = {
+              x: bullet.pos.x + bullet.vel.x * dt,
+              y: bullet.pos.y + bullet.vel.y * dt,
+            };
+
+            const r = bullet.radius;
+            if (
+              pos.x < -r ||
+              pos.y < -r ||
+              pos.x > bds.w + r ||
+              pos.y > bds.h + r
+            )
+              continue;
+
+            let hit = false;
+
+            for (let i = 0; i < next.length; i++) {
+              const body = next[i];
+              if (body.destroyed) continue;
+
+              const dx = body.pos.x - pos.x;
+              const dy = body.pos.y - pos.y;
+              const rr = body.radius + r;
+
+              if (dx * dx + dy * dy <= rr * rr) {
+                hit = true;
+                hitByBullet.add(body.id);
+
+                if (!scoredDestroyedRef.current.has(body.id)) {
+                  scoredDestroyedRef.current.add(body.id);
+                  setScore((s) => s + Math.round(body.mass * 100));
+                }
+
+                next[i] = {
+                  ...body,
+                  destroyed: true,
+                  destroyedAt: now,
+                  vel: { x: 0, y: 0 },
+                };
+
+                break;
+              }
+            }
+
+            if (!hit) {
+              bulletsNext.push({ ...bullet, pos, ttl });
+            }
+          }
+
+          if (draggingRef.current && hitByBullet.has(draggingRef.current.id)) {
+            draggingRef.current = null;
+          }
+
+          bulletsRef.current = bulletsNext;
+          setBullets(bulletsNext);
+        }
+
         const active = next.filter((b) => !b.destroyed);
         solveCollisions(active);
 
@@ -695,6 +839,11 @@ export function useGravitySim({
   return {
     bodies,
     bodiesRef,
+
+    bullets,
+    bulletsRef,
+    fireBullet,
+    onPlayfieldPointerDown,
 
     boundsRef,
     setBounds,

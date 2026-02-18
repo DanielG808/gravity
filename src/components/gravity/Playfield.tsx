@@ -1,9 +1,8 @@
 "use client";
 
 import * as React from "react";
-import type { Body } from "@/src/hooks/useGravitySim";
+import type { Body, Bullet } from "@/src/hooks/useGravitySim";
 import type { PlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
-import PointerReticle from "@/src/components/gravity/PointerReticle";
 import PointerAim from "@/src/components/gravity/PointerAim";
 import PlayerShip from "./PlayerShip";
 
@@ -11,9 +10,12 @@ type PlayfieldProps = {
   paused: boolean;
   resetNonce: number;
   bodies: Body[];
+  bullets: Bullet[];
+
   shipHit: boolean;
   shipDead: boolean;
   shipExplosion: { x: number; y: number } | null;
+
   onBoundsChange: (b: { w: number; h: number }) => void;
   onPointerChange: (p: { x: number; y: number; inside: boolean }) => void;
 
@@ -21,8 +23,14 @@ type PlayfieldProps = {
     id: string,
     at: { x: number; y: number },
   ) => (e: React.PointerEvent) => void;
+
   onPlayfieldPointerMove: (at: { x: number; y: number }) => void;
   onPlayfieldPointerUp: () => void;
+
+  onPlayfieldPointerDown: (at: {
+    x: number;
+    y: number;
+  }) => (e: React.PointerEvent) => void;
 
   gameOver: boolean;
   onRestart: () => void;
@@ -48,6 +56,7 @@ export default function Playfield({
   paused,
   resetNonce,
   bodies,
+  bullets,
   shipHit,
   shipDead,
   shipExplosion,
@@ -56,6 +65,7 @@ export default function Playfield({
   onBodyPointerDown,
   onPlayfieldPointerMove,
   onPlayfieldPointerUp,
+  onPlayfieldPointerDown,
 
   gameOver,
   onRestart,
@@ -153,6 +163,13 @@ export default function Playfield({
         "relative flex-1 h-full overflow-hidden bg-[#050510] touch-none",
         gameOver ? "cursor-auto" : "cursor-none",
       ].join(" ")}
+      onPointerDown={(e) => {
+        if (gameOver) return;
+        const p = toLocal(e);
+        if (!p) return;
+        applyPointer({ x: p.x, y: p.y, inside: true });
+        onPlayfieldPointerDown({ x: p.x, y: p.y })(e);
+      }}
       onPointerMove={(e) => {
         if (gameOver) return;
         const p = toLocal(e);
@@ -186,7 +203,32 @@ export default function Playfield({
 
       <div className="relative h-full w-full">
         <PointerAim pointer={pointer} bodies={bodies} />
-        {/* <PointerReticle pointer={pointer} size={10} /> */}
+
+        {bullets.map((b) => {
+          const ang = Math.atan2(b.vel.y, b.vel.x) * (180 / Math.PI);
+          return (
+            <div
+              key={b.id}
+              className="absolute pointer-events-none"
+              style={{
+                transform: `translate(${b.pos.x}px, ${b.pos.y}px) rotate(${ang}deg)`,
+                opacity: paused ? 0.9 : 1,
+              }}
+            >
+              <div
+                className="absolute rounded-full"
+                style={{
+                  width: 18,
+                  height: 3,
+                  transform: "translate(-50%, -50%)",
+                  background:
+                    "linear-gradient(90deg, rgba(255,255,255,0.95), rgba(34,211,238,0.95), rgba(34,211,238,0.0))",
+                  filter: "drop-shadow(0 0 10px rgba(34,211,238,0.65))",
+                }}
+              />
+            </div>
+          );
+        })}
 
         {!shipDead ? <PlayerShip pointer={pointer} hit={shipHit} /> : null}
 
