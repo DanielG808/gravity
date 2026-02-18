@@ -34,6 +34,9 @@ type PlayfieldProps = {
 
   gameOver: boolean;
   onRestart: () => void;
+
+  ready: boolean;
+  onStart: () => void;
 };
 
 function clamp(v: number, min: number, max: number) {
@@ -69,6 +72,9 @@ export default function Playfield({
 
   gameOver,
   onRestart,
+
+  ready,
+  onStart,
 }: PlayfieldProps) {
   const ref = React.useRef<HTMLElement | null>(null);
   const boundsRef = React.useRef<{ w: number; h: number }>({ w: 0, h: 0 });
@@ -83,6 +89,9 @@ export default function Playfield({
 
   const [showGameOver, setShowGameOver] = React.useState(false);
   const gameOverTimeoutRef = React.useRef<number | null>(null);
+
+  const hasStartedRef = React.useRef(false);
+  const [showStart, setShowStart] = React.useState(false);
 
   React.useEffect(() => {
     if (gameOverTimeoutRef.current != null) {
@@ -108,6 +117,17 @@ export default function Playfield({
       }
     };
   }, [gameOver]);
+
+  React.useEffect(() => {
+    const shouldShow = ready && !gameOver && !hasStartedRef.current;
+    setShowStart(shouldShow);
+  }, [ready, gameOver]);
+
+  const handleStart = React.useCallback(() => {
+    hasStartedRef.current = true;
+    setShowStart(false);
+    onStart();
+  }, [onStart]);
 
   const measure = React.useCallback(() => {
     const el = ref.current;
@@ -156,29 +176,31 @@ export default function Playfield({
     [onPointerChange],
   );
 
+  const blocked = gameOver || showStart;
+
   return (
     <section
       ref={ref}
       className={[
         "relative flex-1 h-full overflow-hidden bg-[#050510] touch-none",
-        gameOver ? "cursor-auto" : "cursor-none",
+        blocked ? "cursor-auto" : "cursor-none",
       ].join(" ")}
       onPointerDown={(e) => {
-        if (gameOver) return;
+        if (blocked) return;
         const p = toLocal(e);
         if (!p) return;
         applyPointer({ x: p.x, y: p.y, inside: true });
         onPlayfieldPointerDown({ x: p.x, y: p.y })(e);
       }}
       onPointerMove={(e) => {
-        if (gameOver) return;
+        if (blocked) return;
         const p = toLocal(e);
         if (!p) return;
         applyPointer({ x: p.x, y: p.y, inside: true });
         onPlayfieldPointerMove({ x: p.x, y: p.y });
       }}
       onPointerEnter={(e) => {
-        if (gameOver) return;
+        if (blocked) return;
         const p = toLocal(e);
         if (!p) return;
         applyPointer({ x: p.x, y: p.y, inside: true });
@@ -187,11 +209,11 @@ export default function Playfield({
         applyPointer({ x: 0, y: 0, inside: false });
       }}
       onPointerUp={() => {
-        if (gameOver) return;
+        if (blocked) return;
         onPlayfieldPointerUp();
       }}
       onPointerCancel={() => {
-        if (gameOver) return;
+        if (blocked) return;
         onPlayfieldPointerUp();
       }}
     >
@@ -311,7 +333,7 @@ export default function Playfield({
               key={b.id}
               className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => {
-                if (gameOver) return;
+                if (blocked) return;
                 const p = toLocal(e);
                 if (!p) return;
                 applyPointer({ x: p.x, y: p.y, inside: true });
@@ -328,6 +350,30 @@ export default function Playfield({
             />
           );
         })}
+
+        {showStart ? (
+          <div className="absolute inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm">
+            <div className="text-center px-6">
+              <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+                Status
+              </div>
+              <div className="mt-2 text-4xl font-semibold text-white/95">
+                Ready
+              </div>
+              <div className="mt-3 text-sm text-white/70">
+                Click start when you're ready.
+              </div>
+
+              <button
+                type="button"
+                onClick={handleStart}
+                className="mt-6 inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
+              >
+                Start
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {gameOver ? (
           <div

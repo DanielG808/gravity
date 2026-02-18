@@ -13,6 +13,12 @@ export default function GravityPage() {
 
   const [resetNonce, setResetNonce] = React.useState(0);
 
+  const activeBodyCount = React.useMemo(() => {
+    let n = 0;
+    for (const b of sim.bodies) if (!b.destroyed) n++;
+    return n;
+  }, [sim.bodies]);
+
   return (
     <main className="w-screen h-screen overflow-hidden text-white">
       <div className="relative w-full h-full flex">
@@ -32,6 +38,11 @@ export default function GravityPage() {
           onPlayfieldPointerMove={sim.onPlayfieldPointerMove}
           onPlayfieldPointerUp={sim.onPlayfieldPointerUp}
           onPlayfieldPointerDown={sim.onPlayfieldPointerDown}
+          ready={sim.ready}
+          onStart={() => {
+            sim.startGame();
+            setResetNonce((n) => n + 1);
+          }}
           gameOver={sim.gameOver}
           onRestart={() => {
             sim.restartGame();
@@ -59,6 +70,12 @@ export default function GravityPage() {
             sim.restartGame();
             setResetNonce((n) => n + 1);
           }}
+          bodyCount={activeBodyCount}
+          maxBodies={sim.spawnMaxBodies}
+          level={sim.level}
+          levelProgress={sim.levelProgress}
+          levelGoal={sim.levelGoal}
+          levelMaxActiveBodies={sim.levelMaxActiveBodies}
         />
       </div>
     </main>
