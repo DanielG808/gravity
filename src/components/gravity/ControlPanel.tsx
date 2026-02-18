@@ -1,6 +1,7 @@
 "use client";
 
 import ControlPanelDivider from "../controls/ControlPanelDivider";
+import ControlPanelHeader from "../controls/ControlPanelHeader";
 import GravityMeter from "../controls/GravityMeter";
 import PauseButton from "../controls/PauseButton";
 import ScoreCounter from "../controls/ScoreCounter";
@@ -91,30 +92,8 @@ export default function ControlPanel({
     <aside className="relative w-[320px] shrink-0 h-full border-l border-white/10 bg-[#07071a]/70 backdrop-blur">
       <div className="absolute inset-0 pointer-events-none [background:radial-gradient(600px_500px_at_40%_20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(600px_500px_at_60%_80%,rgba(59,130,246,0.12),transparent_55%)]" />
 
-      <div className="relative h-full flex flex-col p-4 gap-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Gravity Lab
-            </div>
-            <div className="text-lg font-semibold text-white/90">
-              Control Panel
-            </div>
-          </div>
-
-          <div
-            className={[
-              "text-xs px-2 py-1 rounded-md border",
-              gameOver
-                ? "border-rose-300/30 text-rose-200/90 bg-rose-400/10"
-                : paused
-                  ? "border-amber-300/30 text-amber-200/90 bg-amber-400/10"
-                  : "border-emerald-300/25 text-emerald-200/90 bg-emerald-400/10",
-            ].join(" ")}
-          >
-            {gameOver ? "Game Over" : paused ? "Paused" : "Running"}
-          </div>
-        </div>
+      <section className="relative h-full flex flex-col p-4 gap-4">
+        <ControlPanelHeader paused={paused} gameOver={gameOver} />
 
         <ScoreCounter score={score} />
 
@@ -153,7 +132,7 @@ export default function ControlPanel({
         />
 
         <CopyrightStatement />
-      </div>
+      </section>
     </aside>
   );
 }

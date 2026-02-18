@@ -17,7 +17,7 @@ export default function Button({
     <button
       disabled={disabled}
       className={cn(
-        "inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition",
+        "inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition cursor-pointer",
         variant === "default" && "bg-white/10 hover:bg-white/15 text-white",
         variant === "ghost" && "bg-transparent hover:bg-white/5 text-white",
         variant === "warn" && "bg-red-500/15 hover:bg-red-500/25 text-red-100",
