@@ -71,6 +71,14 @@ export default function ControlPanel({
   const levelPct =
     prog != null && goal != null && goal > 0 ? clamp(prog / goal, 0, 1) : 0;
 
+  const gravityMin = 0;
+  const gravityMax = 3;
+  const gravityPct = clamp(
+    (gravityStrength - gravityMin) / (gravityMax - gravityMin),
+    0,
+    1,
+  );
+
   return (
     <aside className="relative w-[320px] shrink-0 h-full border-l border-white/10 bg-[#07071a]/70 backdrop-blur">
       <div className="absolute inset-0 pointer-events-none [background:radial-gradient(600px_500px_at_40%_20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(600px_500px_at_60%_80%,rgba(59,130,246,0.12),transparent_55%)]" />
@@ -202,61 +210,9 @@ export default function ControlPanel({
           >
             {paused ? "Resume" : "Pause"}
           </button>
-
-          <button
-            type="button"
-            onClick={onReset}
-            disabled={gameOver}
-            className={[
-              "w-full rounded-lg px-3 py-2 text-sm font-medium border transition",
-              gameOver
-                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                : "border-white/15 bg-white/5 text-white/90 hover:bg-white/10",
-            ].join(" ")}
-          >
-            Reset
-          </button>
-
-          <button
-            type="button"
-            onClick={onRestart}
-            className="w-full rounded-lg px-3 py-2 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
-          >
-            Restart
-          </button>
         </div>
 
         <div className="h-px bg-white/10" />
-
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={onAddBody}
-            disabled={gameOver}
-            className={[
-              "w-full rounded-lg px-3 py-2 text-sm font-medium border transition",
-              gameOver
-                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                : "border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15",
-            ].join(" ")}
-          >
-            Add Body
-          </button>
-
-          <button
-            type="button"
-            onClick={onRemoveBody}
-            disabled={gameOver}
-            className={[
-              "w-full rounded-lg px-3 py-2 text-sm font-medium border transition",
-              gameOver
-                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                : "border-rose-300/25 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15",
-            ].join(" ")}
-          >
-            Remove Body
-          </button>
-        </div>
 
         <div className="h-px bg-white/10" />
 
@@ -270,30 +226,22 @@ export default function ControlPanel({
             </div>
           </div>
 
-          <input
-            type="range"
-            min={0}
-            max={3}
-            step={0.01}
-            value={gravityStrength}
-            onChange={(e) => onChangeGravityStrength(Number(e.target.value))}
-            disabled={gameOver}
-            className={[
-              "mt-3 w-full accent-white",
-              gameOver ? "opacity-40" : "",
-            ].join(" ")}
-          />
+          <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className="h-full transition-[width] duration-300 bg-cyan-300/70"
+              style={{ width: `${gravityPct * 100}%` }}
+            />
+          </div>
 
           <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">
-            <span>0.00</span>
-            <span>3.00</span>
+            <span>{gravityMin.toFixed(2)}</span>
+            <span>{gravityMax.toFixed(2)}</span>
           </div>
         </div>
 
         <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-3">
           <div className="text-xs text-white/70 leading-relaxed">
-            Bodies should bounce off the playfield edges once bounds are wired
-            into the sim.
+            &copy;{new Date().getFullYear()} Gravity Labs. All rights reserved.
           </div>
         </div>
       </div>
