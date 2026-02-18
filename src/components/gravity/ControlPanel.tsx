@@ -4,6 +4,8 @@ import ControlPanelDivider from "../controls/ControlPanelDivider";
 import GravityMeter from "../controls/GravityMeter";
 import PauseButton from "../controls/PauseButton";
 import CopyrightStatement from "../layout/CopyrightStatement";
+import LevelCounter from "./LevelCounter";
+import ShipHealthMeter from "./ShipHealthMeter";
 
 type ControlPanelProps = {
   paused: boolean;
@@ -113,8 +115,8 @@ export default function ControlPanel({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+        <div className="flex w-full">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 w-full">
             <div className="text-xs tracking-[0.25em] uppercase text-white/60">
               Score
             </div>
@@ -122,80 +124,24 @@ export default function ControlPanel({
               {score}
             </div>
           </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Bodies
-            </div>
-            <div className="mt-1 text-2xl font-semibold text-white/90">
-              {bodiesLabel}
-            </div>
-          </div>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Level
-            </div>
-            <div className="text-xs font-mono text-white/80">
-              {lvl != null ? `Lv ${lvl}` : "—"}
-            </div>
-          </div>
-
-          <div className="mt-2 flex items-center justify-between text-[10px] text-white/45 font-mono">
-            <span>{prog != null ? prog : "—"}</span>
-            <span>{goal != null ? goal : "—"}</span>
-          </div>
-
-          <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full transition-[width] duration-150 bg-cyan-300/70"
-              style={{ width: `${levelPct * 100}%` }}
-            />
-          </div>
-
-          <div className="mt-2 text-[10px] text-white/45 font-mono">
-            Max active bodies:{" "}
-            {typeof levelMaxActiveBodies === "number"
-              ? levelMaxActiveBodies
-              : "—"}
-          </div>
-        </div>
+        <LevelCounter
+          lvl={lvl}
+          prog={prog}
+          goal={goal}
+          levelPct={levelPct}
+          levelMaxActiveBodies={levelMaxActiveBodies}
+        />
 
         <ControlPanelDivider />
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Ship HP
-            </div>
-
-            <div
-              className={[
-                "text-xs font-mono text-white/80",
-                shipInvulnerable ? "text-cyan-200/90" : "",
-              ].join(" ")}
-            >
-              {shipHP} / {shipMaxHP}
-            </div>
-          </div>
-
-          <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className={[
-                "h-full transition-[width] duration-150",
-                shipInvulnerable ? "bg-cyan-300/70" : "bg-rose-400/80",
-              ].join(" ")}
-              style={{ width: `${pct * 100}%` }}
-            />
-          </div>
-
-          <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">
-            <span>0</span>
-            <span>{shipMaxHP}</span>
-          </div>
-        </div>
+        <ShipHealthMeter
+          pct={pct}
+          shipHP={shipHP}
+          shipMaxHP={shipMaxHP}
+          shipInvulnerable={shipInvulnerable}
+        />
 
         <ControlPanelDivider />
 
