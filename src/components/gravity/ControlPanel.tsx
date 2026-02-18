@@ -3,6 +3,7 @@
 import ControlPanelDivider from "../controls/ControlPanelDivider";
 import GravityMeter from "../controls/GravityMeter";
 import PauseButton from "../controls/PauseButton";
+import ScoreCounter from "../controls/ScoreCounter";
 import CopyrightStatement from "../layout/CopyrightStatement";
 import LevelCounter from "./LevelCounter";
 import ShipHealthMeter from "./ShipHealthMeter";
@@ -115,16 +116,7 @@ export default function ControlPanel({
           </div>
         </div>
 
-        <div className="flex w-full">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 w-full">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Score
-            </div>
-            <div className="mt-1 text-2xl font-semibold text-white/90">
-              {score}
-            </div>
-          </div>
-        </div>
+        <ScoreCounter score={score} />
 
         <LevelCounter
           lvl={lvl}
