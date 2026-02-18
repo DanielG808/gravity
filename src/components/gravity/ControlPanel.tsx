@@ -1,5 +1,14 @@
 "use client";
 
+import ControlPanelDivider from "../controls/ControlPanelDivider";
+import ControlPanelHeader from "../controls/ControlPanelHeader";
+import GravityMeter from "../controls/GravityMeter";
+import PauseButton from "../controls/PauseButton";
+import ScoreCounter from "../controls/ScoreCounter";
+import CopyrightStatement from "../layout/CopyrightStatement";
+import LevelCounter from "./LevelCounter";
+import ShipHealthMeter from "./ShipHealthMeter";
+
 type ControlPanelProps = {
   paused: boolean;
   onTogglePause: () => void;
@@ -34,21 +43,15 @@ function clamp(v: number, min: number, max: number) {
 export default function ControlPanel({
   paused,
   onTogglePause,
-  onReset,
-  onAddBody,
-  onRemoveBody,
+
   gravityStrength,
-  onChangeGravityStrength,
+
   shipHP,
   shipMaxHP,
   shipInvulnerable = false,
 
   score,
   gameOver,
-  onRestart,
-
-  bodyCount,
-  maxBodies,
 
   level,
   levelProgress,
@@ -56,13 +59,6 @@ export default function ControlPanel({
   levelMaxActiveBodies,
 }: ControlPanelProps) {
   const pct = shipMaxHP > 0 ? clamp(shipHP / shipMaxHP, 0, 1) : 0;
-
-  const bodiesLabel =
-    typeof bodyCount === "number"
-      ? typeof maxBodies === "number"
-        ? `${bodyCount} / ${maxBodies}`
-        : `${bodyCount}`
-      : "—";
 
   const lvl = typeof level === "number" ? level : null;
   const prog = typeof levelProgress === "number" ? levelProgress : null;
@@ -83,168 +79,47 @@ export default function ControlPanel({
     <aside className="relative w-[320px] shrink-0 h-full border-l border-white/10 bg-[#07071a]/70 backdrop-blur">
       <div className="absolute inset-0 pointer-events-none [background:radial-gradient(600px_500px_at_40%_20%,rgba(124,58,237,0.16),transparent_55%),radial-gradient(600px_500px_at_60%_80%,rgba(59,130,246,0.12),transparent_55%)]" />
 
-      <div className="relative h-full flex flex-col p-4 gap-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Gravity Lab
-            </div>
-            <div className="text-lg font-semibold text-white/90">
-              Control Panel
-            </div>
-          </div>
+      <section className="relative h-full flex flex-col p-4 gap-4">
+        <ControlPanelHeader paused={paused} gameOver={gameOver} />
 
-          <div
-            className={[
-              "text-xs px-2 py-1 rounded-md border",
-              gameOver
-                ? "border-rose-300/30 text-rose-200/90 bg-rose-400/10"
-                : paused
-                  ? "border-amber-300/30 text-amber-200/90 bg-amber-400/10"
-                  : "border-emerald-300/25 text-emerald-200/90 bg-emerald-400/10",
-            ].join(" ")}
-          >
-            {gameOver ? "Game Over" : paused ? "Paused" : "Running"}
-          </div>
-        </div>
+        <ScoreCounter score={score} />
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Score
-            </div>
-            <div className="mt-1 text-2xl font-semibold text-white/90">
-              {score}
-            </div>
-          </div>
+        <LevelCounter
+          lvl={lvl}
+          prog={prog}
+          goal={goal}
+          levelPct={levelPct}
+          levelMaxActiveBodies={levelMaxActiveBodies}
+        />
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Bodies
-            </div>
-            <div className="mt-1 text-2xl font-semibold text-white/90">
-              {bodiesLabel}
-            </div>
-          </div>
-        </div>
+        <ControlPanelDivider />
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Level
-            </div>
-            <div className="text-xs font-mono text-white/80">
-              {lvl != null ? `Lv ${lvl}` : "—"}
-            </div>
-          </div>
+        <ShipHealthMeter
+          pct={pct}
+          shipHP={shipHP}
+          shipMaxHP={shipMaxHP}
+          shipInvulnerable={shipInvulnerable}
+        />
 
-          <div className="mt-2 flex items-center justify-between text-[10px] text-white/45 font-mono">
-            <span>{prog != null ? prog : "—"}</span>
-            <span>{goal != null ? goal : "—"}</span>
-          </div>
+        <ControlPanelDivider />
 
-          <div className="mt-2 h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full transition-[width] duration-150 bg-cyan-300/70"
-              style={{ width: `${levelPct * 100}%` }}
-            />
-          </div>
+        <PauseButton
+          paused={paused}
+          gameOver={gameOver}
+          onTogglePause={onTogglePause}
+        />
 
-          <div className="mt-2 text-[10px] text-white/45 font-mono">
-            Max active bodies:{" "}
-            {typeof levelMaxActiveBodies === "number"
-              ? levelMaxActiveBodies
-              : "—"}
-          </div>
-        </div>
+        <ControlPanelDivider />
 
-        <div className="h-px bg-white/10" />
+        <GravityMeter
+          gravityStrength={gravityStrength}
+          gravityPct={gravityPct}
+          gravityMin={gravityMin}
+          gravityMax={gravityMax}
+        />
 
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Ship HP
-            </div>
-
-            <div
-              className={[
-                "text-xs font-mono text-white/80",
-                shipInvulnerable ? "text-cyan-200/90" : "",
-              ].join(" ")}
-            >
-              {shipHP} / {shipMaxHP}
-            </div>
-          </div>
-
-          <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className={[
-                "h-full transition-[width] duration-150",
-                shipInvulnerable ? "bg-cyan-300/70" : "bg-rose-400/80",
-              ].join(" ")}
-              style={{ width: `${pct * 100}%` }}
-            />
-          </div>
-
-          <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">
-            <span>0</span>
-            <span>{shipMaxHP}</span>
-          </div>
-        </div>
-
-        <div className="h-px bg-white/10" />
-
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={onTogglePause}
-            disabled={gameOver}
-            className={[
-              "w-full rounded-lg px-3 py-2 text-sm font-medium border transition",
-              gameOver
-                ? "border-white/10 bg-white/5 text-white/40 cursor-not-allowed"
-                : paused
-                  ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15"
-                  : "border-amber-300/25 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15",
-            ].join(" ")}
-          >
-            {paused ? "Resume" : "Pause"}
-          </button>
-        </div>
-
-        <div className="h-px bg-white/10" />
-
-        <div className="h-px bg-white/10" />
-
-        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-              Gravity Strength
-            </div>
-            <div className="text-xs font-mono text-white/80">
-              {gravityStrength.toFixed(2)}x
-            </div>
-          </div>
-
-          <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className="h-full transition-[width] duration-300 bg-cyan-300/70"
-              style={{ width: `${gravityPct * 100}%` }}
-            />
-          </div>
-
-          <div className="mt-2 flex justify-between text-[10px] text-white/40 font-mono">
-            <span>{gravityMin.toFixed(2)}</span>
-            <span>{gravityMax.toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="text-xs text-white/70 leading-relaxed">
-            &copy;{new Date().getFullYear()} Gravity Labs. All rights reserved.
-          </div>
-        </div>
-      </div>
+        <CopyrightStatement />
+      </section>
     </aside>
   );
 }

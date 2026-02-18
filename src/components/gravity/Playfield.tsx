@@ -1,16 +1,22 @@
 "use client";
 
 import * as React from "react";
-import type { Body, Bullet } from "@/src/hooks/useGravitySim";
+import type { Body, TBullet } from "@/src/hooks/useGravitySim";
 import type { PlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import PointerAim from "@/src/components/gravity/PointerAim";
 import PlayerShip from "./PlayerShip";
+import GameOverScreen from "./GameOverScreen";
+import StartScreen from "./StartScreen";
+import Orb from "./Orb";
+import PlayerShipFX from "./PlayerShipFX";
+import Bullet from "./Bullet";
+import StarField from "./StarField";
 
 type PlayfieldProps = {
   paused: boolean;
   resetNonce: number;
   bodies: Body[];
-  bullets: Bullet[];
+  bullets: TBullet[];
 
   shipHit: boolean;
   shipDead: boolean;
@@ -217,195 +223,42 @@ export default function Playfield({
         onPlayfieldPointerUp();
       }}
     >
-      <div className="stars-sm" />
-      <div className="stars-md" />
-      <div className="stars-lg" />
-
-      <div className="absolute inset-0 opacity-60 [background:radial-gradient(800px_500px_at_30%_40%,rgba(124,58,237,0.18),transparent_60%),radial-gradient(700px_450px_at_70%_60%,rgba(59,130,246,0.14),transparent_60%)]" />
+      <StarField />
 
       <div className="relative h-full w-full">
         <PointerAim pointer={pointer} bodies={bodies} />
 
-        {bullets.map((b) => {
-          const ang = Math.atan2(b.vel.y, b.vel.x) * (180 / Math.PI);
-          return (
-            <div
-              key={b.id}
-              className="absolute pointer-events-none"
-              style={{
-                transform: `translate(${b.pos.x}px, ${b.pos.y}px) rotate(${ang}deg)`,
-                opacity: paused ? 0.9 : 1,
-              }}
-            >
-              <div
-                className="absolute rounded-full"
-                style={{
-                  width: 18,
-                  height: 3,
-                  transform: "translate(-50%, -50%)",
-                  background:
-                    "linear-gradient(90deg, rgba(255,255,255,0.95), rgba(34,211,238,0.95), rgba(34,211,238,0.0))",
-                  filter: "drop-shadow(0 0 10px rgba(34,211,238,0.65))",
-                }}
-              />
-            </div>
-          );
-        })}
+        {bullets.map((b) => (
+          <Bullet key={b.id} bullet={b} paused={paused} />
+        ))}
 
-        {!shipDead ? <PlayerShip pointer={pointer} hit={shipHit} /> : null}
+        <PlayerShipFX
+          pointer={pointer}
+          hit={shipHit}
+          dead={shipDead}
+          explosion={shipExplosion}
+          paused={paused}
+        />
 
-        {shipExplosion ? (
-          <div
-            className="absolute pointer-events-none ship-explosion"
-            style={{
-              transform: `translate(${shipExplosion.x}px, ${shipExplosion.y}px)`,
-              opacity: paused ? 0.9 : 1,
-            }}
-          >
-            <div
-              className="absolute ship-explosion-core"
-              style={{
-                width: 24 * 6,
-                height: 24 * 6,
-                transform: "translate(-50%, -50%)",
-                background:
-                  "radial-gradient(circle, rgba(255,235,170,0.98), rgba(255,110,60,0.72), rgba(255,40,0,0.0) 70%)",
-                animation: "explode 420ms ease-out forwards",
-              }}
-            />
-            <div
-              className="absolute ship-explosion-ring"
-              style={{
-                width: 24 * 7,
-                height: 24 * 7,
-                transform: "translate(-50%, -50%)",
-                borderColor: "rgba(255,210,140,0.85)",
-                borderWidth: 2,
-                borderStyle: "solid",
-                borderRadius: 9999,
-                animation: "shockwave 420ms ease-out forwards",
-              }}
-            />
-          </div>
-        ) : null}
+        {bodies.map((b) => (
+          <Orb
+            key={b.id}
+            body={b}
+            paused={paused}
+            blocked={blocked}
+            toLocal={toLocal}
+            applyPointer={applyPointer}
+            onBodyPointerDown={onBodyPointerDown}
+          />
+        ))}
 
-        {bodies.map((b) => {
-          const exploding = Boolean(b.destroyed);
+        <StartScreen showStart={showStart} handleStart={handleStart} />
 
-          if (exploding) {
-            return (
-              <div
-                key={b.id}
-                className="absolute pointer-events-none"
-                style={{
-                  transform: `translate(${b.pos.x}px, ${b.pos.y}px)`,
-                  opacity: paused ? 0.9 : 1,
-                }}
-              >
-                <div
-                  className="absolute rounded-full"
-                  style={{
-                    width: b.radius * 4,
-                    height: b.radius * 4,
-                    transform: "translate(-50%, -50%)",
-                    background:
-                      "radial-gradient(circle, rgba(255,220,140,0.95), rgba(255,90,40,0.65), rgba(255,40,0,0.0) 70%)",
-                    animation: "explode 420ms ease-out forwards",
-                  }}
-                />
-                <div
-                  className="absolute rounded-full border"
-                  style={{
-                    width: b.radius * 5,
-                    height: b.radius * 5,
-                    transform: "translate(-50%, -50%)",
-                    borderColor: "rgba(255,200,120,0.8)",
-                    borderWidth: 2,
-                    animation: "shockwave 420ms ease-out forwards",
-                  }}
-                />
-              </div>
-            );
-          }
-
-          return (
-            <div
-              key={b.id}
-              className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
-              onPointerDown={(e) => {
-                if (blocked) return;
-                const p = toLocal(e);
-                if (!p) return;
-                applyPointer({ x: p.x, y: p.y, inside: true });
-                onBodyPointerDown(b.id, { x: p.x, y: p.y })(e);
-              }}
-              style={{
-                width: b.radius * 2,
-                height: b.radius * 2,
-                transform: `translate(${b.pos.x - b.radius}px, ${b.pos.y - b.radius}px)`,
-                backgroundColor: b.color,
-                boxShadow: `0 0 ${Math.max(10, b.radius * 1.5)}px ${b.color}`,
-                opacity: paused ? 0.9 : 1,
-              }}
-            />
-          );
-        })}
-
-        {showStart ? (
-          <div className="absolute inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm">
-            <div className="text-center px-6">
-              <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-                Status
-              </div>
-              <div className="mt-2 text-4xl font-semibold text-white/95">
-                Ready
-              </div>
-              <div className="mt-3 text-sm text-white/70">
-                Click start when you're ready.
-              </div>
-
-              <button
-                type="button"
-                onClick={handleStart}
-                className="mt-6 inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
-              >
-                Start
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {gameOver ? (
-          <div
-            className={[
-              "absolute inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm",
-              "transition-opacity duration-1000 ease-out",
-              showGameOver
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none",
-            ].join(" ")}
-          >
-            <div className="text-center px-6">
-              <div className="text-xs tracking-[0.25em] uppercase text-white/60">
-                Status
-              </div>
-              <div className="mt-2 text-4xl font-semibold text-white/95">
-                Game Over
-              </div>
-              <div className="mt-3 text-sm text-white/70">
-                Your ship has been destroyed.
-              </div>
-
-              <button
-                type="button"
-                onClick={onRestart}
-                className="mt-6 inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
-              >
-                Restart
-              </button>
-            </div>
-          </div>
-        ) : null}
+        <GameOverScreen
+          gameOver={gameOver}
+          showGameOver={showGameOver}
+          onRestart={onRestart}
+        />
       </div>
     </section>
   );
