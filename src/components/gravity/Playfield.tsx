@@ -7,6 +7,7 @@ import PointerAim from "@/src/components/gravity/PointerAim";
 import PlayerShip from "./PlayerShip";
 import GameOverScreen from "./GameOverScreen";
 import StartScreen from "./StartScreen";
+import Orb from "./Orb";
 
 type PlayfieldProps = {
   paused: boolean;
@@ -291,67 +292,17 @@ export default function Playfield({
           </div>
         ) : null}
 
-        {bodies.map((b) => {
-          const exploding = Boolean(b.destroyed);
-
-          if (exploding) {
-            return (
-              <div
-                key={b.id}
-                className="absolute pointer-events-none"
-                style={{
-                  transform: `translate(${b.pos.x}px, ${b.pos.y}px)`,
-                  opacity: paused ? 0.9 : 1,
-                }}
-              >
-                <div
-                  className="absolute rounded-full"
-                  style={{
-                    width: b.radius * 4,
-                    height: b.radius * 4,
-                    transform: "translate(-50%, -50%)",
-                    background:
-                      "radial-gradient(circle, rgba(255,220,140,0.95), rgba(255,90,40,0.65), rgba(255,40,0,0.0) 70%)",
-                    animation: "explode 420ms ease-out forwards",
-                  }}
-                />
-                <div
-                  className="absolute rounded-full border"
-                  style={{
-                    width: b.radius * 5,
-                    height: b.radius * 5,
-                    transform: "translate(-50%, -50%)",
-                    borderColor: "rgba(255,200,120,0.8)",
-                    borderWidth: 2,
-                    animation: "shockwave 420ms ease-out forwards",
-                  }}
-                />
-              </div>
-            );
-          }
-
-          return (
-            <div
-              key={b.id}
-              className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
-              onPointerDown={(e) => {
-                if (blocked) return;
-                const p = toLocal(e);
-                if (!p) return;
-                applyPointer({ x: p.x, y: p.y, inside: true });
-                onBodyPointerDown(b.id, { x: p.x, y: p.y })(e);
-              }}
-              style={{
-                width: b.radius * 2,
-                height: b.radius * 2,
-                transform: `translate(${b.pos.x - b.radius}px, ${b.pos.y - b.radius}px)`,
-                backgroundColor: b.color,
-                boxShadow: `0 0 ${Math.max(10, b.radius * 1.5)}px ${b.color}`,
-                opacity: paused ? 0.9 : 1,
-              }}
-            />
-          );
-        })}
+        {bodies.map((b) => (
+          <Orb
+            key={b.id}
+            body={b}
+            paused={paused}
+            blocked={blocked}
+            toLocal={toLocal}
+            applyPointer={applyPointer}
+            onBodyPointerDown={onBodyPointerDown}
+          />
+        ))}
 
         <StartScreen showStart={showStart} handleStart={handleStart} />
 
