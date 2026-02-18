@@ -8,6 +8,7 @@ import PlayerShip from "./PlayerShip";
 import GameOverScreen from "./GameOverScreen";
 import StartScreen from "./StartScreen";
 import Orb from "./Orb";
+import PlayerShipFX from "./PlayerShipFX";
 
 type PlayfieldProps = {
   paused: boolean;
@@ -255,42 +256,13 @@ export default function Playfield({
           );
         })}
 
-        {!shipDead ? <PlayerShip pointer={pointer} hit={shipHit} /> : null}
-
-        {shipExplosion ? (
-          <div
-            className="absolute pointer-events-none ship-explosion"
-            style={{
-              transform: `translate(${shipExplosion.x}px, ${shipExplosion.y}px)`,
-              opacity: paused ? 0.9 : 1,
-            }}
-          >
-            <div
-              className="absolute ship-explosion-core"
-              style={{
-                width: 24 * 6,
-                height: 24 * 6,
-                transform: "translate(-50%, -50%)",
-                background:
-                  "radial-gradient(circle, rgba(255,235,170,0.98), rgba(255,110,60,0.72), rgba(255,40,0,0.0) 70%)",
-                animation: "explode 420ms ease-out forwards",
-              }}
-            />
-            <div
-              className="absolute ship-explosion-ring"
-              style={{
-                width: 24 * 7,
-                height: 24 * 7,
-                transform: "translate(-50%, -50%)",
-                borderColor: "rgba(255,210,140,0.85)",
-                borderWidth: 2,
-                borderStyle: "solid",
-                borderRadius: 9999,
-                animation: "shockwave 420ms ease-out forwards",
-              }}
-            />
-          </div>
-        ) : null}
+        <PlayerShipFX
+          pointer={pointer}
+          hit={shipHit}
+          dead={shipDead}
+          explosion={shipExplosion}
+          paused={paused}
+        />
 
         {bodies.map((b) => (
           <Orb
