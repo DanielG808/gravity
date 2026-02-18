@@ -1,3 +1,5 @@
+import Button from "../ui/Button";
+
 type GameOverScreenProps = {
   gameOver: boolean;
   showGameOver: boolean;
@@ -30,13 +32,13 @@ export default function GameOverScreen({
           Your ship has been destroyed.
         </div>
 
-        <button
+        <Button
           type="button"
           onClick={onRestart}
           className="mt-6 inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
         >
           Restart
-        </button>
+        </Button>
       </div>
     </div>
   ) : null;

@@ -1,3 +1,5 @@
+import Button from "../ui/Button";
+
 type StartScreenProps = {
   showStart: boolean;
   handleStart: () => void;
@@ -18,13 +20,13 @@ export default function StartScreen({
           Click start when you're ready.
         </div>
 
-        <button
+        <Button
           type="button"
           onClick={handleStart}
           className="mt-6 inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
         >
           Start
-        </button>
+        </Button>
       </div>
     </div>
   ) : null;
