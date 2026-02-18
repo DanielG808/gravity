@@ -619,16 +619,22 @@ export function useGravitySim({
         }
 
         if (hitSet.size) {
-          let newlyDestroyed = 0;
+          let scoreDelta = 0;
 
           for (const id of hitSet) {
-            if (!scoredDestroyedRef.current.has(id)) {
-              scoredDestroyedRef.current.add(id);
-              newlyDestroyed++;
-            }
+            if (scoredDestroyedRef.current.has(id)) continue;
+
+            const body = next.find((b) => b.id === id);
+            if (!body) continue;
+
+            scoredDestroyedRef.current.add(id);
+
+            scoreDelta += Math.round(body.mass * 100);
           }
 
-          if (newlyDestroyed) setScore((s) => s + newlyDestroyed);
+          if (scoreDelta > 0) {
+            setScore((s) => s + scoreDelta);
+          }
 
           next = next.map((b) => {
             if (!hitSet.has(b.id)) return b;

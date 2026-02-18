@@ -23,6 +23,9 @@ type PlayfieldProps = {
   ) => (e: React.PointerEvent) => void;
   onPlayfieldPointerMove: (at: { x: number; y: number }) => void;
   onPlayfieldPointerUp: () => void;
+
+  gameOver: boolean;
+  onRestart: () => void;
 };
 
 function clamp(v: number, min: number, max: number) {
@@ -53,6 +56,9 @@ export default function Playfield({
   onBodyPointerDown,
   onPlayfieldPointerMove,
   onPlayfieldPointerUp,
+
+  gameOver,
+  onRestart,
 }: PlayfieldProps) {
   const ref = React.useRef<HTMLElement | null>(null);
   const boundsRef = React.useRef<{ w: number; h: number }>({ w: 0, h: 0 });
@@ -64,6 +70,34 @@ export default function Playfield({
     ny: 0,
     inside: false,
   });
+
+  const [showGameOver, setShowGameOver] = React.useState(false);
+  const gameOverTimeoutRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (gameOverTimeoutRef.current != null) {
+      window.clearTimeout(gameOverTimeoutRef.current);
+      gameOverTimeoutRef.current = null;
+    }
+
+    if (!gameOver) {
+      setShowGameOver(false);
+      return;
+    }
+
+    setShowGameOver(false);
+    gameOverTimeoutRef.current = window.setTimeout(() => {
+      setShowGameOver(true);
+      gameOverTimeoutRef.current = null;
+    }, 1000);
+
+    return () => {
+      if (gameOverTimeoutRef.current != null) {
+        window.clearTimeout(gameOverTimeoutRef.current);
+        gameOverTimeoutRef.current = null;
+      }
+    };
+  }, [gameOver]);
 
   const measure = React.useCallback(() => {
     const el = ref.current;
@@ -115,14 +149,19 @@ export default function Playfield({
   return (
     <section
       ref={ref}
-      className="relative flex-1 h-full overflow-hidden bg-[#050510] touch-none cursor-none"
+      className={[
+        "relative flex-1 h-full overflow-hidden bg-[#050510] touch-none",
+        gameOver ? "cursor-auto" : "cursor-none",
+      ].join(" ")}
       onPointerMove={(e) => {
+        if (gameOver) return;
         const p = toLocal(e);
         if (!p) return;
         applyPointer({ x: p.x, y: p.y, inside: true });
         onPlayfieldPointerMove({ x: p.x, y: p.y });
       }}
       onPointerEnter={(e) => {
+        if (gameOver) return;
         const p = toLocal(e);
         if (!p) return;
         applyPointer({ x: p.x, y: p.y, inside: true });
@@ -131,9 +170,11 @@ export default function Playfield({
         applyPointer({ x: 0, y: 0, inside: false });
       }}
       onPointerUp={() => {
+        if (gameOver) return;
         onPlayfieldPointerUp();
       }}
       onPointerCancel={() => {
+        if (gameOver) return;
         onPlayfieldPointerUp();
       }}
     >
@@ -228,6 +269,7 @@ export default function Playfield({
               key={b.id}
               className="absolute rounded-full select-none cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => {
+                if (gameOver) return;
                 const p = toLocal(e);
                 if (!p) return;
                 applyPointer({ x: p.x, y: p.y, inside: true });
@@ -244,6 +286,38 @@ export default function Playfield({
             />
           );
         })}
+
+        {gameOver ? (
+          <div
+            className={[
+              "absolute inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm",
+              "transition-opacity duration-1000 ease-out",
+              showGameOver
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none",
+            ].join(" ")}
+          >
+            <div className="text-center px-6">
+              <div className="text-xs tracking-[0.25em] uppercase text-white/60">
+                Status
+              </div>
+              <div className="mt-2 text-4xl font-semibold text-white/95">
+                Game Over
+              </div>
+              <div className="mt-3 text-sm text-white/70">
+                Your ship has been destroyed.
+              </div>
+
+              <button
+                type="button"
+                onClick={onRestart}
+                className="mt-6 inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium border border-cyan-300/25 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15 transition"
+              >
+                Restart
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );

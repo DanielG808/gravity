@@ -30,6 +30,11 @@ export default function GravityPage() {
           onBodyPointerDown={sim.onBodyPointerDown}
           onPlayfieldPointerMove={sim.onPlayfieldPointerMove}
           onPlayfieldPointerUp={sim.onPlayfieldPointerUp}
+          gameOver={sim.gameOver}
+          onRestart={() => {
+            sim.restartGame();
+            setResetNonce((n) => n + 1);
+          }}
         />
 
         <ControlPanel
