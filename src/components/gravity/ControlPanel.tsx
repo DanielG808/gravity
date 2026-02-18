@@ -43,21 +43,15 @@ function clamp(v: number, min: number, max: number) {
 export default function ControlPanel({
   paused,
   onTogglePause,
-  onReset,
-  onAddBody,
-  onRemoveBody,
+
   gravityStrength,
-  onChangeGravityStrength,
+
   shipHP,
   shipMaxHP,
   shipInvulnerable = false,
 
   score,
   gameOver,
-  onRestart,
-
-  bodyCount,
-  maxBodies,
 
   level,
   levelProgress,
@@ -65,13 +59,6 @@ export default function ControlPanel({
   levelMaxActiveBodies,
 }: ControlPanelProps) {
   const pct = shipMaxHP > 0 ? clamp(shipHP / shipMaxHP, 0, 1) : 0;
-
-  const bodiesLabel =
-    typeof bodyCount === "number"
-      ? typeof maxBodies === "number"
-        ? `${bodyCount} / ${maxBodies}`
-        : `${bodyCount}`
-      : "—";
 
   const lvl = typeof level === "number" ? level : null;
   const prog = typeof levelProgress === "number" ? levelProgress : null;
