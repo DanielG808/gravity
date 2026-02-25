@@ -1,7 +1,7 @@
 "use client";
 
 import type { PointerEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Body, TBullet } from "@/src/hooks/useGravitySim";
 import type { PlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import PointerAim from "@/src/components/gravity/PointerAim";
@@ -12,6 +12,7 @@ import PlayerShipFX from "./PlayerShipFX";
 import Bullet from "./Bullet";
 import StarField from "./StarField";
 import { useElementBounds } from "@/src/hooks/useElementBounds";
+import { usePlayfieldOverlays } from "@/src/hooks/usePlayfieldOverlays";
 
 type PlayfieldProps = {
   paused: boolean;
@@ -99,47 +100,13 @@ export default function Playfield({
     inside: false,
   });
 
-  const [showGameOver, setShowGameOver] = useState(false);
-  const gameOverTimeoutRef = useRef<number | null>(null);
-
-  const hasStartedRef = useRef(false);
-  const [showStart, setShowStart] = useState(false);
-
-  useEffect(() => {
-    if (gameOverTimeoutRef.current != null) {
-      window.clearTimeout(gameOverTimeoutRef.current);
-      gameOverTimeoutRef.current = null;
-    }
-
-    if (!gameOver) {
-      setShowGameOver(false);
-      return;
-    }
-
-    setShowGameOver(false);
-    gameOverTimeoutRef.current = window.setTimeout(() => {
-      setShowGameOver(true);
-      gameOverTimeoutRef.current = null;
-    }, 1000);
-
-    return () => {
-      if (gameOverTimeoutRef.current != null) {
-        window.clearTimeout(gameOverTimeoutRef.current);
-        gameOverTimeoutRef.current = null;
-      }
-    };
-  }, [gameOver]);
-
-  useEffect(() => {
-    const shouldShow = ready && !gameOver && !hasStartedRef.current;
-    setShowStart(shouldShow);
-  }, [ready, gameOver]);
-
-  const handleStart = useCallback(() => {
-    hasStartedRef.current = true;
-    setShowStart(false);
-    onStart();
-  }, [onStart]);
+  const { showStart, handleStart, showGameOver, blocked } =
+    usePlayfieldOverlays({
+      ready,
+      gameOver,
+      onStart,
+      gameOverDelayMs: 1000,
+    });
 
   const toLocal = useCallback((e: PointerEvent) => {
     const el = ref.current;
@@ -159,8 +126,6 @@ export default function Playfield({
     },
     [onPointerChange, boundsRef],
   );
-
-  const blocked = gameOver || showStart;
 
   return (
     <section
