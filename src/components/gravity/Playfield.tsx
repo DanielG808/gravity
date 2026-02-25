@@ -4,7 +4,6 @@ import * as React from "react";
 import type { Body, TBullet } from "@/src/hooks/useGravitySim";
 import type { PlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import PointerAim from "@/src/components/gravity/PointerAim";
-import PlayerShip from "./PlayerShip";
 import GameOverScreen from "./GameOverScreen";
 import StartScreen from "./StartScreen";
 import Orb from "./Orb";
