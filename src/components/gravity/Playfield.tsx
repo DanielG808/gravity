@@ -1,6 +1,7 @@
 "use client";
 
-import * as React from "react";
+import type { PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Body, TBullet } from "@/src/hooks/useGravitySim";
 import type { PlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import PointerAim from "@/src/components/gravity/PointerAim";
@@ -10,6 +11,7 @@ import Orb from "./Orb";
 import PlayerShipFX from "./PlayerShipFX";
 import Bullet from "./Bullet";
 import StarField from "./StarField";
+import { useElementBounds } from "@/src/hooks/useElementBounds";
 
 type PlayfieldProps = {
   paused: boolean;
@@ -27,7 +29,7 @@ type PlayfieldProps = {
   onBodyPointerDown: (
     id: string,
     at: { x: number; y: number },
-  ) => (e: React.PointerEvent) => void;
+  ) => (e: PointerEvent) => void;
 
   onPlayfieldPointerMove: (at: { x: number; y: number }) => void;
   onPlayfieldPointerUp: () => void;
@@ -35,7 +37,7 @@ type PlayfieldProps = {
   onPlayfieldPointerDown: (at: {
     x: number;
     y: number;
-  }) => (e: React.PointerEvent) => void;
+  }) => (e: PointerEvent) => void;
 
   gameOver: boolean;
   onRestart: () => void;
@@ -81,10 +83,15 @@ export default function Playfield({
   ready,
   onStart,
 }: PlayfieldProps) {
-  const ref = React.useRef<HTMLElement | null>(null);
-  const boundsRef = React.useRef<{ w: number; h: number }>({ w: 0, h: 0 });
+  const ref = useRef<HTMLElement | null>(null);
 
-  const [pointer, setPointer] = React.useState<PlayfieldPointer>({
+  const { boundsRef } = useElementBounds({
+    ref,
+    resetNonce,
+    onBoundsChange,
+  });
+
+  const [pointer, setPointer] = useState<PlayfieldPointer>({
     x: 0,
     y: 0,
     nx: 0,
@@ -92,13 +99,13 @@ export default function Playfield({
     inside: false,
   });
 
-  const [showGameOver, setShowGameOver] = React.useState(false);
-  const gameOverTimeoutRef = React.useRef<number | null>(null);
+  const [showGameOver, setShowGameOver] = useState(false);
+  const gameOverTimeoutRef = useRef<number | null>(null);
 
-  const hasStartedRef = React.useRef(false);
-  const [showStart, setShowStart] = React.useState(false);
+  const hasStartedRef = useRef(false);
+  const [showStart, setShowStart] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (gameOverTimeoutRef.current != null) {
       window.clearTimeout(gameOverTimeoutRef.current);
       gameOverTimeoutRef.current = null;
@@ -123,46 +130,18 @@ export default function Playfield({
     };
   }, [gameOver]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const shouldShow = ready && !gameOver && !hasStartedRef.current;
     setShowStart(shouldShow);
   }, [ready, gameOver]);
 
-  const handleStart = React.useCallback(() => {
+  const handleStart = useCallback(() => {
     hasStartedRef.current = true;
     setShowStart(false);
     onStart();
   }, [onStart]);
 
-  const measure = React.useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    boundsRef.current = { w: r.width, h: r.height };
-    onBoundsChange({ w: r.width, h: r.height });
-  }, [onBoundsChange]);
-
-  React.useLayoutEffect(() => {
-    measure();
-  }, [measure, resetNonce]);
-
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const ro = new ResizeObserver(() => measure());
-    ro.observe(el);
-
-    const onWin = () => measure();
-    window.addEventListener("resize", onWin);
-
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", onWin);
-    };
-  }, [measure]);
-
-  const toLocal = React.useCallback((e: React.PointerEvent) => {
+  const toLocal = useCallback((e: PointerEvent) => {
     const el = ref.current;
     if (!el) return null;
     const r = el.getBoundingClientRect();
@@ -171,14 +150,14 @@ export default function Playfield({
     return { x, y, w: r.width, h: r.height };
   }, []);
 
-  const applyPointer = React.useCallback(
+  const applyPointer = useCallback(
     (p: { x: number; y: number; inside: boolean }) => {
       const { w, h } = boundsRef.current;
       const next = toPointer(p.x, p.y, p.inside, w, h);
       setPointer(next);
       onPointerChange({ x: next.x, y: next.y, inside: next.inside });
     },
-    [onPointerChange],
+    [onPointerChange, boundsRef],
   );
 
   const blocked = gameOver || showStart;
