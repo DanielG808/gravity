@@ -1,9 +1,8 @@
 "use client";
 
 import type { PointerEvent } from "react";
-import { useCallback, useRef, useState } from "react";
+import { useRef } from "react";
 import type { Body, TBullet } from "@/src/hooks/useGravitySim";
-import type { PlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 import PointerAim from "@/src/components/gravity/PointerAim";
 import GameOverScreen from "./GameOverScreen";
 import StartScreen from "./StartScreen";
@@ -13,6 +12,7 @@ import Bullet from "./Bullet";
 import StarField from "./StarField";
 import { useElementBounds } from "@/src/hooks/useElementBounds";
 import { usePlayfieldOverlays } from "@/src/hooks/usePlayfieldOverlays";
+import { usePlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
 
 type PlayfieldProps = {
   paused: boolean;
@@ -47,22 +47,6 @@ type PlayfieldProps = {
   onStart: () => void;
 };
 
-function clamp(v: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, v));
-}
-
-function toPointer(
-  x: number,
-  y: number,
-  inside: boolean,
-  w: number,
-  h: number,
-): PlayfieldPointer {
-  const nx = w > 0 ? clamp((x / w) * 2 - 1, -1, 1) : 0;
-  const ny = h > 0 ? clamp((y / h) * 2 - 1, -1, 1) : 0;
-  return { x, y, nx, ny, inside };
-}
-
 export default function Playfield({
   paused,
   resetNonce,
@@ -92,14 +76,6 @@ export default function Playfield({
     onBoundsChange,
   });
 
-  const [pointer, setPointer] = useState<PlayfieldPointer>({
-    x: 0,
-    y: 0,
-    nx: 0,
-    ny: 0,
-    inside: false,
-  });
-
   const { showStart, handleStart, showGameOver, blocked } =
     usePlayfieldOverlays({
       ready,
@@ -108,24 +84,15 @@ export default function Playfield({
       gameOverDelayMs: 1000,
     });
 
-  const toLocal = useCallback((e: PointerEvent) => {
-    const el = ref.current;
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    const x = e.clientX - r.left;
-    const y = e.clientY - r.top;
-    return { x, y, w: r.width, h: r.height };
-  }, []);
-
-  const applyPointer = useCallback(
-    (p: { x: number; y: number; inside: boolean }) => {
-      const { w, h } = boundsRef.current;
-      const next = toPointer(p.x, p.y, p.inside, w, h);
-      setPointer(next);
-      onPointerChange({ x: next.x, y: next.y, inside: next.inside });
-    },
-    [onPointerChange, boundsRef],
-  );
+  const { pointer, toLocal, applyPointer, handlers } = usePlayfieldPointer({
+    ref,
+    boundsRef,
+    blocked,
+    onPointerChange,
+    onPlayfieldPointerDown,
+    onPlayfieldPointerMove,
+    onPlayfieldPointerUp,
+  });
 
   return (
     <section
@@ -134,37 +101,7 @@ export default function Playfield({
         "relative flex-1 h-full overflow-hidden bg-[#050510] touch-none",
         blocked ? "cursor-auto" : "cursor-none",
       ].join(" ")}
-      onPointerDown={(e) => {
-        if (blocked) return;
-        const p = toLocal(e);
-        if (!p) return;
-        applyPointer({ x: p.x, y: p.y, inside: true });
-        onPlayfieldPointerDown({ x: p.x, y: p.y })(e);
-      }}
-      onPointerMove={(e) => {
-        if (blocked) return;
-        const p = toLocal(e);
-        if (!p) return;
-        applyPointer({ x: p.x, y: p.y, inside: true });
-        onPlayfieldPointerMove({ x: p.x, y: p.y });
-      }}
-      onPointerEnter={(e) => {
-        if (blocked) return;
-        const p = toLocal(e);
-        if (!p) return;
-        applyPointer({ x: p.x, y: p.y, inside: true });
-      }}
-      onPointerLeave={() => {
-        applyPointer({ x: 0, y: 0, inside: false });
-      }}
-      onPointerUp={() => {
-        if (blocked) return;
-        onPlayfieldPointerUp();
-      }}
-      onPointerCancel={() => {
-        if (blocked) return;
-        onPlayfieldPointerUp();
-      }}
+      {...handlers}
     >
       <StarField />
 

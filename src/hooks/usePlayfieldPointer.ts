@@ -1,4 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+"use client";
+
+import type { PointerEvent, RefObject } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export type PlayfieldPointer = {
   x: number;
@@ -8,20 +11,48 @@ export type PlayfieldPointer = {
   inside: boolean;
 };
 
+type BoundsRef = { current: { w: number; h: number } };
+
+type UsePlayfieldPointerArgs = {
+  ref: RefObject<HTMLElement | null>;
+  boundsRef: BoundsRef;
+  blocked: boolean;
+
+  onPointerChange: (p: { x: number; y: number; inside: boolean }) => void;
+
+  onPlayfieldPointerDown: (at: {
+    x: number;
+    y: number;
+  }) => (e: PointerEvent) => void;
+  onPlayfieldPointerMove: (at: { x: number; y: number }) => void;
+  onPlayfieldPointerUp: () => void;
+};
+
 function clamp(v: number, min: number, max: number) {
   return Math.min(max, Math.max(min, v));
 }
 
-type Options = {
-  clampToBounds?: boolean;
-};
+function toPointer(
+  x: number,
+  y: number,
+  inside: boolean,
+  w: number,
+  h: number,
+): PlayfieldPointer {
+  const nx = w > 0 ? clamp((x / w) * 2 - 1, -1, 1) : 0;
+  const ny = h > 0 ? clamp((y / h) * 2 - 1, -1, 1) : 0;
+  return { x, y, nx, ny, inside };
+}
 
-export function usePlayfieldPointer<T extends HTMLElement>(
-  playfieldRef: React.RefObject<T | null>,
-  opts: Options = {},
-) {
-  const { clampToBounds = true } = opts;
-
+export function usePlayfieldPointer({
+  ref,
+  boundsRef,
+  blocked,
+  onPointerChange,
+  onPlayfieldPointerDown,
+  onPlayfieldPointerMove,
+  onPlayfieldPointerUp,
+}: UsePlayfieldPointerArgs) {
   const [pointer, setPointer] = useState<PlayfieldPointer>({
     x: 0,
     y: 0,
@@ -30,52 +61,71 @@ export function usePlayfieldPointer<T extends HTMLElement>(
     inside: false,
   });
 
-  const compute = useCallback(
-    (clientX: number, clientY: number) => {
-      const el = playfieldRef.current;
-      if (!el) return;
-
+  const toLocal = useCallback(
+    (e: PointerEvent) => {
+      const el = ref.current;
+      if (!el) return null;
       const r = el.getBoundingClientRect();
-      const w = Math.max(1, r.width);
-      const h = Math.max(1, r.height);
-
-      let x = clientX - r.left;
-      let y = clientY - r.top;
-
-      const inside = x >= 0 && x <= w && y >= 0 && y <= h;
-
-      if (clampToBounds) {
-        x = clamp(x, 0, w);
-        y = clamp(y, 0, h);
-      }
-
-      const nx = clamp(x / w, 0, 1);
-      const ny = clamp(y / h, 0, 1);
-
-      setPointer({ x, y, nx, ny, inside });
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      return { x, y, w: r.width, h: r.height };
     },
-    [playfieldRef, clampToBounds],
+    [ref],
   );
 
-  useEffect(() => {
-    const el = playfieldRef.current;
-    if (!el) return;
+  const applyPointer = useCallback(
+    (p: { x: number; y: number; inside: boolean }) => {
+      const { w, h } = boundsRef.current;
+      const next = toPointer(p.x, p.y, p.inside, w, h);
+      setPointer(next);
+      onPointerChange({ x: next.x, y: next.y, inside: next.inside });
+    },
+    [boundsRef, onPointerChange],
+  );
 
-    const onMove = (e: PointerEvent) => compute(e.clientX, e.clientY);
-    const onLeave = () =>
-      setPointer((p) => ({
-        ...p,
-        inside: false,
-      }));
+  const handlers = useMemo(
+    () => ({
+      onPointerDown: (e: PointerEvent) => {
+        if (blocked) return;
+        const p = toLocal(e);
+        if (!p) return;
+        applyPointer({ x: p.x, y: p.y, inside: true });
+        onPlayfieldPointerDown({ x: p.x, y: p.y })(e);
+      },
+      onPointerMove: (e: PointerEvent) => {
+        if (blocked) return;
+        const p = toLocal(e);
+        if (!p) return;
+        applyPointer({ x: p.x, y: p.y, inside: true });
+        onPlayfieldPointerMove({ x: p.x, y: p.y });
+      },
+      onPointerEnter: (e: PointerEvent) => {
+        if (blocked) return;
+        const p = toLocal(e);
+        if (!p) return;
+        applyPointer({ x: p.x, y: p.y, inside: true });
+      },
+      onPointerLeave: () => {
+        applyPointer({ x: 0, y: 0, inside: false });
+      },
+      onPointerUp: () => {
+        if (blocked) return;
+        onPlayfieldPointerUp();
+      },
+      onPointerCancel: () => {
+        if (blocked) return;
+        onPlayfieldPointerUp();
+      },
+    }),
+    [
+      blocked,
+      toLocal,
+      applyPointer,
+      onPlayfieldPointerDown,
+      onPlayfieldPointerMove,
+      onPlayfieldPointerUp,
+    ],
+  );
 
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerleave", onLeave);
-
-    return () => {
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerleave", onLeave);
-    };
-  }, [playfieldRef, compute]);
-
-  return pointer;
+  return { pointer, toLocal, applyPointer, handlers };
 }
