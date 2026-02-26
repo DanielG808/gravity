@@ -2,7 +2,7 @@
 
 import type { PointerEvent } from "react";
 import { useRef } from "react";
-import type { Body, TBullet } from "@/src/hooks/useGravitySim";
+
 import PointerAim from "@/src/components/gravity/PointerAim";
 import GameOverScreen from "./GameOverScreen";
 import StartScreen from "./StartScreen";
@@ -13,6 +13,7 @@ import StarField from "./StarField";
 import { useElementBounds } from "@/src/hooks/useElementBounds";
 import { usePlayfieldOverlays } from "@/src/hooks/usePlayfieldOverlays";
 import { usePlayfieldPointer } from "@/src/hooks/usePlayfieldPointer";
+import { Body, TBullet } from "@/src/hooks/gravitySim/types";
 
 type PlayfieldProps = {
   paused: boolean;
