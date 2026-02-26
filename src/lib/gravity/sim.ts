@@ -23,19 +23,19 @@ export function stepGravity(
 
   const accel = (p.g * body.mass) / distSq;
 
-  body.velocityX += (dx / dist) * accel * dt;
-  body.velocityY += (dy / dist) * accel * dt;
+  body.vx += (dx / dist) * accel * dt;
+  body.vy += (dy / dist) * accel * dt;
 
-  const speed = Math.hypot(body.velocityX, body.velocityY);
+  const speed = Math.hypot(body.vx, body.vy);
   if (speed > p.maxSpeed) {
     const s = p.maxSpeed / speed;
-    body.velocityX *= s;
-    body.velocityY *= s;
+    body.vx *= s;
+    body.vy *= s;
   }
 
-  body.x += body.velocityX * dt;
-  body.y += body.velocityY * dt;
+  body.x += body.vx * dt;
+  body.y += body.vy * dt;
 
-  body.velocityX *= p.damping;
-  body.velocityY *= p.damping;
+  body.vx *= p.damping;
+  body.vy *= p.damping;
 }
