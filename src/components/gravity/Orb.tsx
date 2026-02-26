@@ -1,7 +1,7 @@
 "use client";
 
+import { Body } from "@/src/hooks/gravitySim/types";
 import * as React from "react";
-import type { Body } from "@/src/hooks/useGravitySim";
 
 type OrbProps = {
   body: Body;
