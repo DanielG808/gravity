@@ -1,6 +1,6 @@
 "use client";
 
-import type { TBullet } from "@/src/hooks/useGravitySim";
+import { TBullet } from "@/src/hooks/gravitySim/types";
 
 type BulletProps = {
   bullet: TBullet;
