@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import { useCallback, useLayoutEffect, useRef } from "react";
 import type { BodyState } from "@/src/lib/gravity/types";
 import { stepGravity } from "@/src/lib/gravity/sim";
@@ -14,11 +15,18 @@ type SimParams = {
 };
 
 type UseGravityBodyArgs = {
-  playfieldRef: React.RefObject<HTMLElement | null>;
-  bodyElRef: React.RefObject<HTMLDivElement | null>;
-  pointerRef: React.RefObject<Vec2>;
+  playfieldRef: RefObject<HTMLElement | null>;
+  bodyElRef: RefObject<HTMLDivElement | null>;
+  pointerRef: RefObject<Vec2>;
   sim: SimParams;
 };
+
+function uid() {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `b_${Math.random().toString(16).slice(2)}_${Date.now()}`
+  );
+}
 
 export function useGravityBody({
   playfieldRef,
@@ -27,11 +35,13 @@ export function useGravityBody({
   sim,
 }: UseGravityBodyArgs) {
   const bodyRef = useRef<BodyState>({
+    id: uid(),
     x: 0,
     y: 0,
-    velocityX: 0,
-    velocityY: 0,
+    vx: 0,
+    vy: 0,
     mass: 1,
+    r: 12,
   });
 
   const applyTransform = useCallback(() => {
@@ -50,8 +60,8 @@ export function useGravityBody({
 
     body.x = r.width / 2;
     body.y = r.height / 2;
-    body.velocityX = 0;
-    body.velocityY = 0;
+    body.vx = 0;
+    body.vy = 0;
 
     applyTransform();
   }, [playfieldRef, applyTransform]);
