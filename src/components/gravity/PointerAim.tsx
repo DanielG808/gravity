@@ -1,6 +1,6 @@
 "use client";
 
-import type { Body } from "@/src/hooks/useGravitySim";
+import { Body } from "@/src/hooks/gravitySim/types";
 
 type Pointer = { x: number; y: number; inside: boolean };
 

@@ -17,7 +17,8 @@ export default function StartScreen({
         </div>
         <div className="mt-2 text-4xl font-semibold text-white/95">Ready</div>
         <div className="mt-3 text-sm text-white/70">
-          Click start when you're ready.
+          Move the mouse to navigate and left-click to fire your blaster. Click
+          start when ready.
         </div>
 
         <Button

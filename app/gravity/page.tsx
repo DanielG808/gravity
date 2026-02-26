@@ -3,7 +3,7 @@
 import * as React from "react";
 import ControlPanel from "@/src/components/gravity/ControlPanel";
 import Playfield from "@/src/components/gravity/Playfield";
-import { useGravitySim } from "@/src/hooks/useGravitySim";
+import { useGravitySim } from "@/src/hooks/gravitySim/useGravitySim";
 
 export default function GravityPage() {
   const sim = useGravitySim({
