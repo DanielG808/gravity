@@ -7,7 +7,7 @@ import {
   BULLET_TTL_S,
 } from "./constants";
 import { uid } from "./math";
-import { Pointer, TBullet } from "./types";
+import type { Pointer, TBullet } from "./types";
 
 export function useBullets(args: {
   pointerRef: React.RefObject<Pointer>;

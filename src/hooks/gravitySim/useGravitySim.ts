@@ -18,7 +18,6 @@ import { useLeveling } from "./leveling";
 import { activeBodiesCount, computeSpawnIntervalMs, spawnOne } from "./spawn";
 import {
   EXPLOSION_DURATION,
-  LEVEL_BASE_GOAL,
   SHIP_MAX_HP,
   SHIP_RADIUS,
   SPAWN_BASE_INTERVAL_MS,
@@ -59,7 +58,6 @@ export function useGravitySim({
   );
 
   const [paused, setPaused] = useState(false);
-
   const [gravityStrength, setGravityStrength] = useState<number>(1);
 
   const [score, setScore] = useState(0);
@@ -152,11 +150,12 @@ export function useGravitySim({
 
   const canFireRef = useRef(true);
 
-  const { bullets, bulletsRef, fireBullet, resetBullets } = useBullets({
-    pointerRef,
-    readyRef,
-    canFireRef,
-  });
+  const { bullets, bulletsRef, fireBullet, resetBullets, commitBullets } =
+    useBullets({
+      pointerRef,
+      readyRef,
+      canFireRef,
+    });
 
   const scoredDestroyedRef = useRef<Set<string>>(new Set());
 
@@ -487,7 +486,7 @@ export function useGravitySim({
 
           clearDraggingIf(hitByBullet);
 
-          bulletsRef.current = bulletsNext;
+          commitBullets(bulletsNext);
         }
 
         next = next.filter((b) => {
@@ -568,7 +567,7 @@ export function useGravitySim({
     computeLevelMaxActiveBodies,
     clearDraggingIf,
     setGameStatusSafe,
-    bulletsRef,
+    commitBullets,
   ]);
 
   const shipDead = shipHp <= 0;
